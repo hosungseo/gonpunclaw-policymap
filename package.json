@@ -1,0 +1,42 @@
+{
+  "name": "gonpunclaw-policymap",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "gen:template": "tsx scripts/generate-template.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.104.0",
+    "@vercel/og": "^0.11.1",
+    "maplibre-gl": "^5.23.0",
+    "nanoid": "^5.1.9",
+    "next": "16.2.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "supercluster": "^8.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/supercluster": "^7.1.3",
+    "@vitest/ui": "^4.1.5",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.4",
+    "happy-dom": "^20.9.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^4.1.5"
+  }
+}
