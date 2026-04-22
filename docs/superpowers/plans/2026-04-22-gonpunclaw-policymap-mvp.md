@@ -962,7 +962,13 @@ git commit -m "feat(geocode): Kakao Local API geocoder"
 
 ---
 
-### Task 9: VWorld geocoder
+### Task 9: VWorld geocoder (Search API)
+
+Uses VWorld **Search API 2.0** (`/req/search`) rather than the older Geocoder API. Search API is more tolerant of mixed road/parcel formats and unusual spacing, which matches the Excel-from-지자체 reality.
+
+**Endpoint:** `https://api.vworld.kr/req/search` with `service=search`, `request=search`, `version=2.0`, `type=address`, `category=road|parcel`, `query=<주소>`, `size=1`, `format=json`.
+
+**Fallback:** try `category=road` first, then `category=parcel`. If both return no items, fail.
 
 **Files:**
 - Create: `src/lib/geocode/vworld.ts`
@@ -976,30 +982,78 @@ import { VWorldGeocoder } from "@/lib/geocode/vworld";
 
 beforeEach(() => vi.restoreAllMocks());
 
-const vworldOk = {
+const resJson = (obj: unknown, status = 200) =>
+  new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
+
+const okRoad = {
   response: {
     status: "OK",
-    result: { point: { x: "127.0", y: "37.5" }, refined: { text: "서울 중구 세종대로 110" } },
+    result: {
+      crs: "EPSG:4326",
+      type: "ADDRESS",
+      items: [
+        {
+          id: "1",
+          address: { road: "서울특별시 중구 세종대로 110", parcel: "서울 중구 태평로1가 31", category: "road" },
+          point: { x: "127.0", y: "37.5" },
+        },
+      ],
+    },
   },
 };
 
-describe("VWorldGeocoder", () => {
+const notFound = { response: { status: "NOT_FOUND" } };
+
+describe("VWorldGeocoder (Search API)", () => {
   it("parses road-address success", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify(vworldOk), { status: 200 })
-    );
-    const r = await new VWorldGeocoder("KEY").geocode("서울 중구 세종대로 110");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(resJson(okRoad));
+    const r = await new VWorldGeocoder("KEY").geocode("서울특별시 중구 세종대로 110");
     expect(r.ok).toBe(true);
     if (!r.ok) return;
+    expect(r.lat).toBe(37.5);
+    expect(r.lng).toBe(127.0);
     expect(r.provider).toBe("vworld");
+    expect(r.address_normalized).toMatch(/세종대로/);
   });
 
-  it("falls back type=parcel if road fails, then fails", async () => {
+  it("falls back to parcel when road returns NOT_FOUND", async () => {
+    const okParcel = {
+      response: {
+        status: "OK",
+        result: {
+          items: [{ address: { parcel: "서울 중구 태평로1가 31", category: "parcel" }, point: { x: "127.1", y: "37.6" } }],
+        },
+      },
+    };
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ response: { status: "NOT_FOUND" } })))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ response: { status: "NOT_FOUND" } })));
+      .mockResolvedValueOnce(resJson(notFound))
+      .mockResolvedValueOnce(resJson(okParcel));
+    const r = await new VWorldGeocoder("KEY").geocode("서울 중구 태평로1가 31");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.lat).toBe(37.6);
+  });
+
+  it("fails when both road and parcel miss", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(resJson(notFound))
+      .mockResolvedValueOnce(resJson(notFound));
     const r = await new VWorldGeocoder("KEY").geocode("없음");
     expect(r.ok).toBe(false);
+  });
+
+  it("reports INVALID_KEY as failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      resJson({ response: { status: "ERROR", error: { code: "INVALID_KEY", text: "등록되지 않은 인증키" } } })
+    );
+    const r = await new VWorldGeocoder("KEY").geocode("x");
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toMatch(/INVALID_KEY/);
+  });
+
+  it("reports enabled=false without API key", () => {
+    expect(new VWorldGeocoder("").enabled).toBe(false);
   });
 });
 ```
@@ -1011,6 +1065,19 @@ describe("VWorldGeocoder", () => {
 ```typescript
 import type { Geocoder, GeocodeResult } from "./types";
 
+interface VWorldSearchItem {
+  id?: string;
+  address?: { road?: string; parcel?: string; category?: string; bldnm?: string };
+  point?: { x: string; y: string };
+}
+interface VWorldSearchResponse {
+  response: {
+    status: string;
+    error?: { code: string; text: string };
+    result?: { items?: VWorldSearchItem[] };
+  };
+}
+
 export class VWorldGeocoder implements Geocoder {
   readonly name = "vworld" as const;
   readonly enabled: boolean;
@@ -1020,34 +1087,41 @@ export class VWorldGeocoder implements Geocoder {
 
   async geocode(address: string): Promise<GeocodeResult> {
     if (!this.enabled) return { ok: false, reason: "DISABLED" };
-    for (const type of ["road", "parcel"] as const) {
+
+    for (const category of ["road", "parcel"] as const) {
       const q = new URLSearchParams({
-        service: "address",
-        request: "getcoord",
+        service: "search",
+        request: "search",
         version: "2.0",
-        crs: "epsg:4326",
-        type,
-        address,
+        crs: "EPSG:4326",
+        size: "1",
+        page: "1",
+        query: address,
+        type: "address",
+        category,
         format: "json",
         key: this.apiKey,
       });
+
       let res: Response;
       try {
-        res = await fetch(`https://api.vworld.kr/req/address?${q.toString()}`);
+        res = await fetch(`https://api.vworld.kr/req/search?${q.toString()}`);
       } catch (e) {
         return { ok: false, reason: `NETWORK:${(e as Error).message}` };
       }
       if (!res.ok) continue;
-      const j = (await res.json()) as {
-        response: { status: string; result?: { point: { x: string; y: string }; refined?: { text?: string } } };
-      };
-      if (j.response.status === "OK" && j.response.result) {
-        const p = j.response.result.point;
+
+      const j = (await res.json()) as VWorldSearchResponse;
+      if (j.response.status === "ERROR") {
+        return { ok: false, reason: `VWORLD:${j.response.error?.code ?? "UNKNOWN"}` };
+      }
+      const item = j.response.result?.items?.[0];
+      if (j.response.status === "OK" && item?.point) {
         return {
           ok: true,
-          lat: Number(p.y),
-          lng: Number(p.x),
-          address_normalized: j.response.result.refined?.text ?? address,
+          lat: Number(item.point.y),
+          lng: Number(item.point.x),
+          address_normalized: item.address?.road ?? item.address?.parcel ?? address,
           provider: "vworld",
         };
       }
@@ -1057,7 +1131,7 @@ export class VWorldGeocoder implements Geocoder {
 }
 ```
 
-- [ ] **Step 4: Run — expect pass**
+- [ ] **Step 4: Run — expect pass (5 tests)**
 
 - [ ] **Step 5: Commit**
 
