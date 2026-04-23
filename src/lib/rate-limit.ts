@@ -29,4 +29,5 @@ export function ipKey(req: Request, prefix: string): string {
 export const LIMITS = {
   upload: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3/hour
   adminAttempt: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5/10min
+  report: { limit: 5, windowMs: 60 * 60 * 1000 }, // 5/hour
 } as const;

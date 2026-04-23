@@ -1,36 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GonpunClaw PolicyMap
 
-## Getting Started
+엑셀 파일로 만드는 공개 정책 지도. 주소가 들어 있는 시트를 올리면 카카오 / VWorld / Juso
+지오코더 폴백 체인으로 좌표를 찾아 MapLibre + Supabase 백엔드로 공유 가능한 지도를 생성합니다.
 
-First, run the development server:
+## 라우트 개요
+
+- `/` — 랜딩 페이지
+- `/upload` — 엑셀 업로드 폼
+- `/api/upload` — `POST` 멀티파트. 파싱 → 지오코딩 → `maps`/`markers` 삽입 → `{ slug, admin_token }` 반환
+- `/m/[slug]` — 공개 지도 (분류 / 값 범위 필터, 클러스터링, 팝업)
+- `/manage/[slug]` — 관리 토큰으로 지도 정보 수정 및 삭제 (제목, 설명, 컬럼 라벨, 공개 여부)
+- `/api/maps/[slug]/update` — `POST` JSON. 관리 토큰 검증 후 허용된 필드만 수정 (슬러그와 마커는 변경 불가)
+- `/api/maps/[slug]/delete` — `POST` JSON. 관리 토큰 검증 후 지도와 종속 데이터를 삭제
+- `/api/maps/[slug]/report` — `POST` JSON (`{ reason }`). 공개된 지도를 대상으로 익명 신고를 접수. 신고자 IP는 해시하여 저장
+- `/staff/audit` — 운영자 전용 감사 로그 뷰어 (`STAFF_DASHBOARD_TOKEN` 필요)
+- `/staff/reports` — 운영자 전용 신고 관리 뷰 (상태 필터 / 건수 제한 / 개별 상태 변경)
+- `/api/staff/reports/update` — `POST`. 스태프 세션 쿠키 필요. `{ id, status }` 로 신고 상태를 `pending / reviewed / dismissed / resolved` 중 하나로 전환. 실제 변경이 있을 때만 `report.update` 감사 로그를 남김
+
+## 요구 사항
+
+- Node.js 20.9 이상
+- Supabase 프로젝트 (서비스 롤 키 필요)
+- 카카오 / VWorld / Juso 중 최소 하나의 지오코더 키
+
+## 환경 변수 (`.env.local`)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# 지오코더 (사용하는 키만 채우면 됨)
+KAKAO_REST_API_KEY=
+VWORLD_API_KEY=
+JUSO_API_KEY=
+GEOCODER_PRIORITY=kakao,vworld,juso
+
+# 관리 토큰 해시용 페퍼 (32바이트 권장)
+# openssl rand -hex 32
+ADMIN_TOKEN_PEPPER=
+
+# 운영 대시보드 토큰 (선택)
+STAFF_DASHBOARD_TOKEN=
+
+# Sentry (선택)
+SENTRY_DSN=
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`SUPABASE_SERVICE_ROLE_KEY`는 절대 클라이언트에 노출하지 마세요. 모든 쓰기는 서버 라우트에서
+수행합니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 데이터베이스 마이그레이션
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`supabase/migrations/` 안의 SQL을 순서대로 실행합니다.
 
-## Learn More
+| 파일 | 내용 |
+| --- | --- |
+| `0001_initial_schema.sql` | 기본 테이블 (maps, markers, geocode_cache, geocode_failures, audit_log, reports, deleted_slugs) |
+| `0002_indexes.sql` | 정렬 / 검색 인덱스 |
+| `0003_rls_policies.sql` | 익명 사용자가 게시된(`is_listed=true`) 지도와 그 마커만 읽도록 하는 RLS 정책. 신고는 anon에게 INSERT만 허용 |
 
-To learn more about Next.js, take a look at the following resources:
+Supabase CLI를 쓰는 경우:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+supabase db push
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+또는 SQL 에디터에 파일 내용을 그대로 붙여 넣어도 됩니다. 서비스 롤 키는 RLS를 우회하므로
+서버 라우트의 동작에는 영향이 없습니다.
 
-## Deploy on Vercel
+## 배포 준비 문서
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `docs/DEPLOY-CHECKLIST.md` — 실서버 배포 전 확인 항목
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 개발 / 빌드
+
+```bash
+npm install
+npm run dev          # http://localhost:3000
+npm run build
+npm start
+npm run lint
+npm test             # 단위 테스트 (vitest)
+npm run test:e2e     # Playwright (선택)
+npm run gen:template # public/template.xlsx 재생성
+```
+
+## 보안 메모
+
+- 업로드는 IP 단위 시간당 3회까지로 제한됩니다 (`src/lib/rate-limit.ts`).
+- 관리 토큰은 페퍼와 함께 HMAC-SHA256으로 해시되어 저장됩니다 (`src/lib/tokens.ts`).
+- 업로드한 사용자만 받는 관리 토큰은 응답 화면에서 한 번만 노출됩니다.
+- 관리 페이지에서 관리 토큰으로 지도 정보를 수정하거나, 슬러그 재입력 확인 후 영구 삭제할 수 있습니다.
+- 수정 API는 IP 단위 10분당 5회로 제한됩니다 (`LIMITS.adminAttempt`).
+- 게시 기본값은 `is_listed=true`이며, 추후 운영자 모더레이션 흐름을 추가할 수 있습니다.
+- 지도 생성 / 수정 / 삭제, 그리고 실패한 관리 토큰 시도는 `audit_log` 테이블에 기록됩니다.
+  IP는 `ADMIN_TOKEN_PEPPER`를 키로 한 HMAC-SHA256으로 해시되어 저장되며, 원본 IP는 저장하지
+  않습니다. User-Agent가 있으면 함께 기록하고, `details`에는 슬러그, 삽입/실패 건수, 변경된
+  필드, `is_listed` 플래그 전환 등 운영에 필요한 최소 정보만 남깁니다. 감사 로그 기록이
+  실패해도 핵심 요청은 정상적으로 완료됩니다 (`src/lib/audit.ts`).
+
+## 운영자용 감사 로그 뷰어
+
+- 접속 경로: `/staff/audit`
+- 인증: `.env`의 `STAFF_DASHBOARD_TOKEN` 값을 로그인 폼에 입력하면 8시간짜리 HttpOnly 세션
+  쿠키가 발급됩니다. 쿠키에는 원본 토큰 대신 `HMAC(token, ADMIN_TOKEN_PEPPER)` 파생값만
+  저장되므로 로그인 이후 렌더된 HTML에 토큰이 노출되지 않습니다 (`src/lib/staff-auth.ts`).
+- 로그인 시도는 IP 단위 10분당 5회로 제한됩니다 (`LIMITS.adminAttempt`). 잘못된 토큰은
+  `?err=auth`, 한도 초과는 `?err=rate`, 환경 변수 누락은 `?err=config` 로 표기됩니다.
+- `STAFF_DASHBOARD_TOKEN` 또는 `ADMIN_TOKEN_PEPPER` 가 비어 있으면 뷰어는 설정 오류 안내만
+  표시하고 로그인 폼을 숨깁니다.
+- 뷰어에서는 `created_at / action / map_id / ip_hash / user_agent / details` 를 표 형태로
+  보여주며, action 드롭다운과 최대 건수(기본 100, 최대 500) 필터를 지원합니다. 오른쪽 상단의
+  로그아웃 버튼은 세션 쿠키를 즉시 만료시킵니다.
+
+## 운영자용 신고 관리 뷰
+
+- 접속 경로: `/staff/reports`
+- 인증은 `/staff/audit` 와 동일한 스태프 세션 쿠키를 사용합니다. 로그인 폼은 성공 시
+  해당 페이지로 되돌아옵니다 (`redirect_to` 는 `/staff/audit` 또는 `/staff/reports` 만 허용).
+- 표에는 `created_at / status / map_id / reporter_ip_hash / reason` 를 보여주며, 상태
+  필터와 최대 건수(기본 100, 최대 500) 필터를 지원합니다.
+- 각 행마다 상태 선택 드롭다운과 `적용` 버튼으로 `pending → reviewed / dismissed / resolved`
+  간 전환이 가능합니다. 상태가 실제로 바뀐 경우에만 `audit_log` 에 `report.update` 가 기록되며,
+  `details` 에는 `report_id / status_before / status_after` 가 남습니다.
