@@ -6,7 +6,7 @@
 ## 라우트 개요
 
 - `/` — 랜딩 페이지
-- `/upload` — 엑셀 업로드 폼
+- `/upload` — 엑셀 업로드 폼 (실사용 기준 `.xlsx` 권장, `.csv`는 헤더/인코딩 이슈 가능)
 - `/api/upload` — `POST` 멀티파트. 파싱 → 지오코딩 → `maps`/`markers` 삽입 → `{ slug, admin_token }` 반환
 - `/m/[slug]` — 공개 지도 (분류 / 값 범위 필터, 클러스터링, 팝업)
 - `/manage/[slug]` — 관리 토큰으로 지도 정보 수정 및 삭제 (제목, 설명, 컬럼 라벨, 공개 여부)
@@ -22,6 +22,7 @@
 - Node.js 20.9 이상
 - Supabase 프로젝트 (서비스 롤 키 필요)
 - 카카오 / VWorld / Juso 중 최소 하나의 지오코더 키
+- 업로드 파일은 `.xlsx` 권장 (`.csv`는 스프레드시트 저장 방식에 따라 헤더/인코딩 해석이 흔들릴 수 있음)
 
 ## 환경 변수 (`.env.local`)
 
@@ -72,6 +73,14 @@ supabase db push
 ## 배포 준비 문서
 
 - `docs/DEPLOY-CHECKLIST.md` — 실서버 배포 전 확인 항목
+- `docs/PRODUCTION-ENV.md` — production 환경변수 실제 입력 가이드
+- `docs/VERCEL-ENV-QUICK.md` — Vercel 입력창용 초압축 env 표
+
+## 실배포 검증 메모
+
+- 2026-04-24 기준 Vercel production 배포 후 실서버 업로드 검증 완료
+- Kakao geocoder로 2건 주소 변환 성공, 공개 지도/관리 페이지 모두 정상 확인
+- 같은 날 `.csv` 샘플은 `BAD_HEADER`로 실패했고, `.xlsx` 샘플은 정상 통과했으므로 현재 운영 가이드는 `.xlsx` 우선이 안전함
 
 ## 개발 / 빌드
 
