@@ -47,6 +47,12 @@ GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 자동
 
 ![샘플 정책지도 표 화면](./docs/assets/demo-map.png)
 
+- 라이브 URL: https://gonpunclaw-policymap.vercel.app
+- 업로드 페이지: https://gonpunclaw-policymap.vercel.app/upload
+- 에이전트 안내: https://gonpunclaw-policymap.vercel.app/llms.txt
+- 사용자 가이드: [`docs/USER-GUIDE-KO.md`](docs/USER-GUIDE-KO.md)
+- 업로드 템플릿: [`docs/sample-upload-template.xlsx`](docs/sample-upload-template.xlsx)
+
 ## 한눈에 보기
 
 | 작업 | 지원 내용 |
