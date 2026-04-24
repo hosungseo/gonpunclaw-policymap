@@ -30,20 +30,37 @@ test.describe("public UI polish", () => {
     const submit = page.getByRole("button", { name: "지도 생성" });
     await expect(submit).toBeDisabled();
 
-    await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "public/template.xlsx"));
-    await expect(page.getByText("template.xlsx")).toBeVisible();
+    await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "tests/fixtures/excel/valid_small.xlsx"));
+    await expect(page.getByText("valid_small.xlsx")).toBeVisible();
+    await expect(page.getByText("미리보기")).toBeVisible();
+    await expect(page.getByText("2개 주소")).toBeVisible();
+    await expect(page.getByText("서초복지관")).toBeVisible();
+    await expect(page.getByText("해운대센터")).toBeVisible();
     await expect(submit).toBeDisabled();
 
     await page.getByLabel(/지도 제목/).fill("테스트 정책 지도");
 
     await expect(submit).toBeEnabled();
     await page.getByRole("button", { name: "파일 선택 해제" }).click();
-    await expect(page.getByText("template.xlsx")).toBeHidden();
+    await expect(page.getByText("valid_small.xlsx")).toBeHidden();
+    await expect(page.getByText("미리보기")).toBeHidden();
     await expect(submit).toBeDisabled();
 
     await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "public/template.xlsx"));
     await expect(page.getByText("template.xlsx")).toBeVisible();
     await expect(submit).toBeEnabled();
     await expectNoHorizontalOverflow(page);
+  });
+
+  test("upload form explains invalid spreadsheets before submission", async ({ page }) => {
+    await page.goto("/upload");
+
+    const submit = page.getByRole("button", { name: "지도 생성" });
+    await page.getByLabel(/지도 제목/).fill("헤더 오류 테스트");
+    await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "tests/fixtures/excel/bad_header.xlsx"));
+
+    await expect(page.getByText("파일을 확인해 주세요")).toBeVisible();
+    await expect(page.getByText("A열 헤더는 '주소' 또는 '소재지' 같은 주소 컬럼이어야 합니다.")).toBeVisible();
+    await expect(submit).toBeDisabled();
   });
 });

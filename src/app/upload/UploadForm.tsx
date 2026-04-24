@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import Link from "next/link";
+import { parseWorkbook, type ParsedRow } from "@/lib/excel/parse";
 
 async function copyText(text: string) {
   if (typeof navigator === "undefined" || !navigator.clipboard) return false;
@@ -37,10 +38,17 @@ type Status =
       stats: Record<string, number>;
     };
 
+type FilePreview =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; rows: ParsedRow[]; totalRows: number; skipped: number[] }
+  | { kind: "error"; message: string };
+
 export function UploadForm() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [title, setTitle] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
+  const [filePreview, setFilePreview] = useState<FilePreview>({ kind: "idle" });
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,7 +93,33 @@ export function UploadForm() {
 
   function clearSelectedFile() {
     setSelectedFileName("");
+    setFilePreview({ kind: "idle" });
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleFileChange(file: File | undefined) {
+    setSelectedFileName(file?.name ?? "");
+    if (!file) {
+      setFilePreview({ kind: "idle" });
+      return;
+    }
+
+    setFilePreview({ kind: "loading" });
+    try {
+      const parsed = parseWorkbook(await file.arrayBuffer());
+      if (!parsed.ok) {
+        setFilePreview({ kind: "error", message: parsed.error.message });
+        return;
+      }
+      setFilePreview({
+        kind: "ready",
+        rows: parsed.rows.slice(0, 5),
+        totalRows: parsed.rows.length,
+        skipped: parsed.skipped_empty_address,
+      });
+    } catch {
+      setFilePreview({ kind: "error", message: "파일 미리보기를 만들 수 없습니다." });
+    }
   }
 
   if (status.kind === "success") {
@@ -109,6 +143,7 @@ export function UploadForm() {
               setStatus({ kind: "idle" });
               setTitle("");
               setSelectedFileName("");
+              setFilePreview({ kind: "idle" });
             }}
             className="inline-flex min-h-10 items-center justify-center rounded-lg border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
           >
@@ -174,7 +209,7 @@ export function UploadForm() {
   }
 
   const disabled = status.kind === "uploading";
-  const canSubmit = !disabled && Boolean(title.trim()) && Boolean(selectedFileName);
+  const canSubmit = !disabled && Boolean(title.trim()) && Boolean(selectedFileName) && filePreview.kind === "ready";
 
   return (
     <form
@@ -288,7 +323,7 @@ export function UploadForm() {
               type="file"
               accept=".xlsx,.xls,.csv"
               required
-              onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? "")}
+              onChange={(e) => void handleFileChange(e.target.files?.[0])}
               className="sr-only"
             />
             {selectedFileName && (
@@ -305,6 +340,8 @@ export function UploadForm() {
             </p>
           </div>
 
+          <FilePreviewPanel preview={filePreview} />
+
           {disabled && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950">
               <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -318,6 +355,62 @@ export function UploadForm() {
         </aside>
       </div>
     </form>
+  );
+}
+
+function FilePreviewPanel({ preview }: { preview: FilePreview }) {
+  if (preview.kind === "idle") {
+    return null;
+  }
+
+  if (preview.kind === "loading") {
+    return (
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+        파일 구조를 확인하는 중입니다.
+      </div>
+    );
+  }
+
+  if (preview.kind === "error") {
+    return (
+      <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-xs leading-5 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+        <p className="font-semibold">파일을 확인해 주세요</p>
+        <p className="mt-1">{preview.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">미리보기</p>
+        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          {preview.totalRows.toLocaleString()}개 주소
+        </span>
+      </div>
+      {preview.skipped.length > 0 && (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+          주소가 비어 있는 {preview.skipped.length.toLocaleString()}개 행은 제외됩니다.
+        </p>
+      )}
+      <div className="mt-3 space-y-2">
+        {preview.rows.map((row) => (
+          <div
+            key={row.row_index}
+            className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <p className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name || row.address_raw}</p>
+            <p className="mt-1 text-zinc-500 dark:text-zinc-400">{row.address_raw}</p>
+            <p className="mt-1 text-zinc-500 dark:text-zinc-400">
+              {[row.category, row.value != null ? row.value.toLocaleString() : null].filter(Boolean).join(" · ") || "분류/값 없음"}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+        화면에는 최대 5개 행만 표시됩니다. 전체 데이터는 업로드 후 지도에서 확인할 수 있습니다.
+      </p>
+    </div>
   );
 }
 
