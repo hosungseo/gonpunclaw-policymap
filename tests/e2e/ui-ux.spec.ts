@@ -244,8 +244,21 @@ test.describe("public UI polish", () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test("demo map can request sigungu boundary data", async ({ page }) => {
+  test("demo map can request administrative boundary data by level", async ({ page }) => {
+    const requestedPaths: string[] = [];
+    await page.route("**/data/sido-boundaries.geojson", async (route) => {
+      requestedPaths.push(new URL(route.request().url()).pathname);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "FeatureCollection",
+          features: [],
+        }),
+      });
+    });
     await page.route("**/data/sigg-boundaries.geojson", async (route) => {
+      requestedPaths.push(new URL(route.request().url()).pathname);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -257,16 +270,16 @@ test.describe("public UI polish", () => {
     });
 
     await page.goto("/demo");
-    const requestPromise = page.waitForRequest("**/data/sigg-boundaries.geojson");
-    await page.getByLabel("시군구 경계 표시").check();
+    await page.getByLabel("행정구역 경계 표시").check();
+    await expect.poll(() => requestedPaths).toContain("/data/sido-boundaries.geojson");
 
-    const request = await requestPromise;
-    expect(new URL(request.url()).pathname).toBe("/data/sigg-boundaries.geojson");
+    await page.getByRole("button", { name: "시군구" }).click();
+    await expect.poll(() => requestedPaths).toContain("/data/sigg-boundaries.geojson");
     await expectNoHorizontalOverflow(page);
   });
 
-  test("demo map explains when sigungu boundaries are unavailable", async ({ page }) => {
-    await page.route("**/data/sigg-boundaries.geojson", async (route) => {
+  test("demo map explains when administrative boundaries are unavailable", async ({ page }) => {
+    await page.route("**/data/sido-boundaries.geojson", async (route) => {
       await route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -275,7 +288,7 @@ test.describe("public UI polish", () => {
     });
 
     await page.goto("/demo");
-    await page.getByLabel("시군구 경계 표시").check();
+    await page.getByLabel("행정구역 경계 표시").check();
 
     await expect(page.getByText("경계 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.")).toBeVisible();
     await expectNoHorizontalOverflow(page);

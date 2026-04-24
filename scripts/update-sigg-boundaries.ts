@@ -8,12 +8,7 @@ type MultiPolygon = Polygon[];
 
 interface VWorldFeature {
   type: "Feature";
-  properties?: {
-    sig_cd?: string;
-    full_nm?: string;
-    sig_kor_nm?: string;
-    [key: string]: unknown;
-  };
+  properties?: Record<string, unknown>;
   geometry?: {
     type: "Polygon" | "MultiPolygon";
     coordinates: Polygon | MultiPolygon;
@@ -33,8 +28,41 @@ interface VWorldResponse {
   };
 }
 
+interface BoundaryDataset {
+  data: string;
+  outputFile: string;
+  name: string;
+  source: string;
+  columns: string;
+  defaultTolerance: number;
+  toleranceEnv: string;
+  properties: string[];
+}
+
 const DEFAULT_BBOX = "124,33,132,39.5";
-const DEFAULT_TOLERANCE = 0.002;
+
+const DATASETS: BoundaryDataset[] = [
+  {
+    data: "LT_C_ADSIDO_INFO",
+    outputFile: "sido-boundaries.geojson",
+    name: "vworld-lt-c-adsido-info",
+    source: "VWorld 2D Data API 2.0 LT_C_ADSIDO_INFO",
+    columns: "ctprvn_cd,ctp_kor_nm",
+    defaultTolerance: 0.003,
+    toleranceEnv: "SIDO_SIMPLIFY_TOLERANCE",
+    properties: ["ctprvn_cd", "ctp_kor_nm"],
+  },
+  {
+    data: "LT_C_ADSIGG_INFO",
+    outputFile: "sigg-boundaries.geojson",
+    name: "vworld-lt-c-adsigg-info",
+    source: "VWorld 2D Data API 2.0 LT_C_ADSIGG_INFO",
+    columns: "sig_cd,full_nm,sig_kor_nm",
+    defaultTolerance: 0.002,
+    toleranceEnv: "SIGG_SIMPLIFY_TOLERANCE",
+    properties: ["sig_cd", "full_nm", "sig_kor_nm"],
+  },
+];
 
 function sqSegDist(point: Position, start: Position, end: Position) {
   let x = start[0];
@@ -116,22 +144,27 @@ function simplifyGeometry(feature: VWorldFeature, tolerance: number) {
   };
 }
 
-async function main() {
-  const apiKey = process.env.VWORLD_API_KEY;
-  if (!apiKey) throw new Error("VWORLD_API_KEY is required.");
+function pickProperties(feature: VWorldFeature, keys: string[]) {
+  const properties: Record<string, string> = {};
+  for (const key of keys) {
+    const value = feature.properties?.[key];
+    properties[key] = value == null ? "" : String(value);
+  }
+  return properties;
+}
 
-  const domain = process.env.VWORLD_DOMAIN;
-  const tolerance = Number(process.env.SIGG_SIMPLIFY_TOLERANCE ?? DEFAULT_TOLERANCE);
+async function fetchDataset(dataset: BoundaryDataset, apiKey: string, domain: string | undefined) {
+  const tolerance = Number(process.env[dataset.toleranceEnv] ?? dataset.defaultTolerance);
   const params = new URLSearchParams({
     service: "data",
     request: "GetFeature",
     version: "2.0",
-    data: "LT_C_ADSIGG_INFO",
+    data: dataset.data,
     format: "json",
     size: "1000",
     page: "1",
-    geomFilter: `BOX(${process.env.SIGG_BBOX ?? DEFAULT_BBOX})`,
-    columns: "sig_cd,full_nm,sig_kor_nm",
+    geomFilter: `BOX(${process.env.BOUNDARY_BBOX ?? DEFAULT_BBOX})`,
+    columns: dataset.columns,
     geometry: "true",
     attribute: "true",
     crs: "EPSG:4326",
@@ -140,19 +173,19 @@ async function main() {
   if (domain) params.set("domain", domain);
 
   const res = await fetch(`https://api.vworld.kr/req/data?${params.toString()}`);
-  if (!res.ok) throw new Error(`VWorld request failed: ${res.status}`);
+  if (!res.ok) throw new Error(`${dataset.data} request failed: ${res.status}`);
 
   const payload = (await res.json()) as VWorldResponse;
   if (payload.response?.status !== "OK") {
     const error = payload.response?.error;
-    throw new Error(`VWorld error: ${error?.code ?? payload.response?.status} ${error?.text ?? ""}`.trim());
+    throw new Error(`${dataset.data} error: ${error?.code ?? payload.response?.status} ${error?.text ?? ""}`.trim());
   }
 
   const features = payload.response.result?.featureCollection?.features ?? [];
   const output = {
     type: "FeatureCollection",
-    name: "vworld-lt-c-adsigg-info",
-    source: "VWorld 2D Data API 2.0 LT_C_ADSIGG_INFO",
+    name: dataset.name,
+    source: dataset.source,
     updated_at: "2026-04-23",
     crs: "EPSG:4326",
     simplify_tolerance: tolerance,
@@ -161,20 +194,26 @@ async function main() {
       if (!geometry) return [];
       return [{
         type: "Feature",
-        properties: {
-          sig_cd: feature.properties?.sig_cd ?? "",
-          full_nm: feature.properties?.full_nm ?? "",
-          sig_kor_nm: feature.properties?.sig_kor_nm ?? "",
-        },
+        properties: pickProperties(feature, dataset.properties),
         geometry,
       }];
     }),
   };
 
-  const outPath = path.join(process.cwd(), "public/data/sigg-boundaries.geojson");
+  const outPath = path.join(process.cwd(), "public/data", dataset.outputFile);
   mkdirSync(path.dirname(outPath), { recursive: true });
   writeFileSync(outPath, `${JSON.stringify(output)}\n`);
-  console.log(`Wrote ${output.features.length} boundaries to ${outPath}`);
+  console.log(`Wrote ${output.features.length} ${dataset.data} boundaries to ${outPath}`);
+}
+
+async function main() {
+  const apiKey = process.env.VWORLD_API_KEY;
+  if (!apiKey) throw new Error("VWORLD_API_KEY is required.");
+
+  const domain = process.env.VWORLD_DOMAIN;
+  for (const dataset of DATASETS) {
+    await fetchDataset(dataset, apiKey, domain);
+  }
 }
 
 main().catch((error) => {

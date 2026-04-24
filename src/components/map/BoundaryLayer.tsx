@@ -9,9 +9,11 @@ interface BoundaryLayerProps {
   map: MLMap | null;
   markers: MarkerData[];
   enabled: boolean;
+  level: BoundaryLevel;
   onStatusChange?: (status: BoundaryLayerStatus) => void;
 }
 
+export type BoundaryLevel = "sido" | "sigg";
 export type BoundaryLayerStatus = "idle" | "loading" | "ready" | "empty" | "unavailable";
 
 type BoundaryApiResponse =
@@ -97,7 +99,7 @@ function upsertBoundaryLayers(map: MLMap, featureCollection: SiggBoundaryFeature
   }
 }
 
-export function BoundaryLayer({ map, markers, enabled, onStatusChange }: BoundaryLayerProps) {
+export function BoundaryLayer({ map, markers, enabled, level, onStatusChange }: BoundaryLayerProps) {
   useEffect(() => {
     if (!map) return;
     const bbox = bboxForMarkers(markers);
@@ -115,7 +117,7 @@ export function BoundaryLayer({ map, markers, enabled, onStatusChange }: Boundar
     const controller = new AbortController();
     onStatusChange?.("loading");
 
-    fetch("/data/sigg-boundaries.geojson", { signal: controller.signal })
+    fetch(`/data/${level}-boundaries.geojson`, { signal: controller.signal })
       .then((res) => res.json() as Promise<BoundaryApiResponse>)
       .then((json) => {
         if (controller.signal.aborted) return;
@@ -137,7 +139,7 @@ export function BoundaryLayer({ map, markers, enabled, onStatusChange }: Boundar
     return () => {
       controller.abort();
     };
-  }, [enabled, map, markers, onStatusChange]);
+  }, [enabled, level, map, markers, onStatusChange]);
 
   useEffect(() => {
     return () => {

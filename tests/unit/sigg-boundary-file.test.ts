@@ -2,7 +2,22 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-describe("static sigungu boundary data", () => {
+describe("static administrative boundary data", () => {
+  it("ships simplified VWorld sido GeoJSON for the map overlay", () => {
+    const filePath = path.join(process.cwd(), "public/data/sido-boundaries.geojson");
+    const stat = statSync(filePath);
+    const geojson = JSON.parse(readFileSync(filePath, "utf8")) as {
+      type: string;
+      features: Array<{ properties?: { ctprvn_cd?: string; ctp_kor_nm?: string } }>;
+    };
+
+    expect(stat.size).toBeLessThan(3 * 1024 * 1024);
+    expect(geojson.type).toBe("FeatureCollection");
+    expect(geojson.features.length).toBeGreaterThanOrEqual(17);
+    expect(geojson.features.some((feature) => feature.properties?.ctprvn_cd === "11")).toBe(true);
+    expect(geojson.features.some((feature) => feature.properties?.ctp_kor_nm === "서울특별시")).toBe(true);
+  });
+
   it("ships simplified VWorld sigungu GeoJSON for the map overlay", () => {
     const filePath = path.join(process.cwd(), "public/data/sigg-boundaries.geojson");
     const stat = statSync(filePath);
