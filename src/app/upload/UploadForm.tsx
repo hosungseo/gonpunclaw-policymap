@@ -307,7 +307,7 @@ export function UploadForm() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <LabelInput id="value_label" name="value_label" label="C열 값" placeholder="예: 예산" />
+              <LabelInput id="value_label" name="value_label" label="C열 대표값" placeholder="예: 예산" />
               <LabelInput id="value_unit" name="value_unit" label="단위" placeholder="예: 원" />
               <LabelInput id="category_label" name="category_label" label="D열 분류" placeholder="예: 대상" />
             </div>
