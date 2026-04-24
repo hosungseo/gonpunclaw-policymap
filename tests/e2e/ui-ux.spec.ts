@@ -16,6 +16,7 @@ test.describe("public UI polish", () => {
     await expect(page.getByRole("heading", { name: "지도 검토", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "운영 관리", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "지도 만들기" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "샘플 지도 보기" })).toBeVisible();
     await expect(page.getByRole("link", { name: "엑셀 템플릿 받기" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
@@ -62,5 +63,19 @@ test.describe("public UI polish", () => {
     await expect(page.getByText("파일을 확인해 주세요")).toBeVisible();
     await expect(page.getByText("A열 헤더는 '주소' 또는 '소재지' 같은 주소 컬럼이어야 합니다.")).toBeVisible();
     await expect(submit).toBeDisabled();
+  });
+
+  test("demo map shows a sample result without uploading", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "샘플 지도 보기" }).click();
+
+    await expect(page).toHaveURL(/\/demo$/);
+    await expect(page.getByRole("heading", { name: "샘플 정책지도" })).toBeVisible();
+    await expect(page.getByText("샘플 데이터")).toBeVisible();
+
+    await page.getByRole("button", { name: "표" }).click();
+    await expect(page.getByRole("cell", { name: "서초복지관" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "해운대센터" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
   });
 });

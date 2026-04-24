@@ -52,6 +52,7 @@ export default function Home() {
           <nav className="hidden items-center gap-5 text-sm font-medium text-zinc-600 md:flex dark:text-zinc-300">
             <a href="#workflow" className="hover:text-zinc-950 dark:hover:text-white">흐름</a>
             <a href="#capabilities" className="hover:text-zinc-950 dark:hover:text-white">기능</a>
+            <Link href="/demo" className="hover:text-zinc-950 dark:hover:text-white">샘플</Link>
             <a
               href="https://github.com/hosungseo/gonpunclaw-policymap/blob/main/docs/USER-GUIDE-KO.md"
               target="_blank"
@@ -104,6 +105,12 @@ export default function Home() {
                 className="inline-flex min-h-11 items-center justify-center rounded-lg bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
               >
                 지도 만들기
+              </Link>
+              <Link
+                href="/demo"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-600"
+              >
+                샘플 지도 보기
               </Link>
               <a
                 href="/template.xlsx"

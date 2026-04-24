@@ -28,11 +28,12 @@ export interface MapClientProps {
   valueUnit: string | null;
   categoryLabel: string | null;
   markers: MarkerData[];
+  isDemo?: boolean;
 }
 
 type ViewMode = "map" | "table";
 
-export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, markers }: MapClientProps) {
+export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, markers, isDemo = false }: MapClientProps) {
   const [map, setMap] = useState<MLMap | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(null);
   const [valueRange, setValueRange] = useState<[number, number] | null>(null);
@@ -99,6 +100,11 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-base font-semibold">{title}</h1>
+            {isDemo && (
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                샘플 데이터
+              </span>
+            )}
             <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
               {filteredMarkers.length.toLocaleString()} / {markers.length.toLocaleString()}곳
             </span>
@@ -218,7 +224,23 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
             </div>
           </div>
           <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <ReportForm slug={slug} />
+            {isDemo ? (
+              <div>
+                <h3 className="text-sm font-semibold">샘플 지도</h3>
+                <p className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
+                  업로드 없이 공개 지도 화면을 확인하는 예시입니다. 실제 지도는 엑셀 업로드 후
+                  생성된 공개 링크에서 공유할 수 있습니다.
+                </p>
+                <Link
+                  href="/upload"
+                  className="mt-3 inline-flex min-h-9 items-center rounded-lg bg-zinc-900 px-3 text-xs font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                >
+                  내 데이터로 만들기
+                </Link>
+              </div>
+            ) : (
+              <ReportForm slug={slug} />
+            )}
           </div>
         </aside>
 

@@ -9,6 +9,8 @@
 <p align="center">
   <a href="https://gonpunclaw-policymap.vercel.app">Live</a>
   ·
+  <a href="https://gonpunclaw-policymap.vercel.app/demo">샘플 지도</a>
+  ·
   <a href="https://gonpunclaw-policymap.vercel.app/upload">지도 만들기</a>
   ·
   <a href="./docs/USER-GUIDE-KO.md">사용자 가이드</a>
@@ -45,6 +47,7 @@ GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 자동
 | 좌표 변환 | 국내 주소용 지오코더 폴백 처리 |
 | 공개 공유 | 공개 지도 링크와 관리 페이지 발급 |
 | 데이터 탐색 | 검색, 분류 필터, 값 범위 필터, 범례, 표 보기 |
+| 사전 체험 | 샘플 지도로 업로드 전 결과 화면 확인 |
 | 관리 | 관리 토큰으로 제목, 설명, 컬럼 라벨, 공개 여부 수정 |
 
 ## 빠른 시작
@@ -54,9 +57,13 @@ GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 자동
 3. [`/upload`](https://gonpunclaw-policymap.vercel.app/upload)에 업로드합니다.
 4. 발급된 공개 지도 링크를 공유하고, 관리 토큰은 따로 보관합니다.
 
+결과 화면을 먼저 보고 싶다면 [`/demo`](https://gonpunclaw-policymap.vercel.app/demo)에서
+샘플 데이터를 확인할 수 있습니다.
+
 ## 주요 화면
 
 - `/` — 정책 지도 발행 흐름, 지도 미리보기, 업로드/템플릿/가이드 진입점
+- `/demo` — 업로드 없이 확인하는 샘플 공개 지도
 - `/upload` — 지도 기본 정보, 컬럼 표시 이름, 엑셀 파일 선택
 - `/m/[slug]` — 공개 지도 검색, 필터, 범례, 표 보기
 - `/manage/[slug]` — 업로드한 지도 정보 수정 및 삭제
