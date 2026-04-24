@@ -57,6 +57,7 @@ GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 자동
 | 좌표 변환 | 국내 주소용 지오코더 폴백 처리 |
 | 공개 공유 | 공개 지도 링크와 관리 페이지 발급 |
 | 데이터 탐색 | 검색, 분류 필터, 값 범위 필터, 범례, 표 보기 |
+| 경계 확인 | VWorld 2D 데이터 API로 시군구 경계 레이어 표시 |
 | 사전 체험 | 샘플 지도로 업로드 전 결과 화면 확인 |
 | 관리 | 관리 토큰으로 제목, 설명, 컬럼 라벨, 공개 여부, 엑셀 데이터 교체, CSV 내보내기, 실패 주소 재시도, 삭제 |
 | 운영 | 신고 상태 관리, 감사 로그, DB 기반 요청 제한, 업로드 작업 자동 재개/정리 |
@@ -117,7 +118,7 @@ E열 이후는 공개 지도 팝업에 표시되므로 전화번호, 이메일, 
 | App | Next.js App Router, React, TypeScript, Tailwind CSS |
 | Map | MapLibre GL, OpenStreetMap raster tiles, marker clustering |
 | Data | Supabase, server route handlers |
-| Geocoding | 국내 주소 지오코딩 폴백 체인 |
+| Geocoding / Boundary | 국내 주소 지오코딩 폴백 체인, VWorld 시군구 경계 |
 | Test | Vitest, Playwright |
 
 ## 개발
@@ -139,6 +140,11 @@ npm run build
 
 로컬 실행에는 `.env.example`을 참고해 `.env.local`을 구성해야 합니다. 실제 운영 환경값이나
 비밀키는 공개 저장소에 기록하지 않습니다.
+
+`VWORLD_API_KEY`가 설정되어 있으면 공개 지도에서 `시군구 경계 표시`를 켤 수 있습니다.
+브라우저에는 키를 노출하지 않고 `/api/boundaries/sigg` 서버 route가 VWorld Data API 2.0
+`LT_C_ADSIGG_INFO`를 호출합니다. VWorld 인증키에 도메인 제한이 있으면 `VWORLD_DOMAIN`에
+등록한 도메인을 입력합니다.
 
 ### 로컬 Supabase 실행
 

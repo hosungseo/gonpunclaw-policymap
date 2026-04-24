@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { LngLatBounds, type Map as MLMap } from "maplibre-gl";
 import { MapView } from "@/components/map/MapView";
+import { BoundaryLayer, type BoundaryLayerStatus } from "@/components/map/BoundaryLayer";
 import { MarkerLayer, type MarkerData } from "@/components/map/MarkerLayer";
 import { Filters } from "@/components/map/Filters";
 import { Legend } from "@/components/map/Legend";
@@ -42,6 +43,8 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [focusedMarkerId, setFocusedMarkerId] = useState<string | null>(null);
   const [showMobileTools, setShowMobileTools] = useState(false);
+  const [showSiggBoundaries, setShowSiggBoundaries] = useState(false);
+  const [siggBoundaryStatus, setSiggBoundaryStatus] = useState<BoundaryLayerStatus>("idle");
 
   async function handleCopy() {
     const ok = await copyText(typeof window === "undefined" ? `/m/${slug}` : window.location.href);
@@ -72,6 +75,15 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
   const searchResults = useMemo(() => filteredMarkers.slice(0, 8), [filteredMarkers]);
   const hasActiveFilters = Boolean(searchQuery.trim() || selectedCategories || valueRange);
+  const siggBoundaryMessage = useMemo(() => {
+    if (!showSiggBoundaries || siggBoundaryStatus === "idle") {
+      return "VWorld 경계도를 기준으로 현재 위치들이 속한 시군구 주변 경계를 함께 봅니다.";
+    }
+    if (siggBoundaryStatus === "loading") return "시군구 경계를 불러오는 중입니다.";
+    if (siggBoundaryStatus === "ready") return "현재 표시 위치 주변의 시군구 경계를 표시 중입니다.";
+    if (siggBoundaryStatus === "empty") return "현재 범위에서 표시할 시군구 경계를 찾지 못했습니다.";
+    return "경계 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.";
+  }, [showSiggBoundaries, siggBoundaryStatus]);
 
   function handleResetFilters() {
     setSearchQuery("");
@@ -230,6 +242,25 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           </div>
 
           <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <h3 className="text-sm font-semibold">지도 표시</h3>
+            <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+              <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">시군구 경계 표시</span>
+              <input
+                type="checkbox"
+                checked={showSiggBoundaries}
+                onChange={(e) => {
+                  setShowSiggBoundaries(e.target.checked);
+                  setSiggBoundaryStatus(e.target.checked ? "loading" : "idle");
+                }}
+                className="h-4 w-4 accent-blue-700"
+              />
+            </label>
+            <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              {siggBoundaryMessage}
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <h3 className="text-sm font-semibold">범례</h3>
             <div className="mt-2">
               <Legend categories={categoryBuckets.map((c) => c.name)} valueLabel={valueLabel} />
@@ -300,6 +331,12 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           {viewMode === "map" ? (
             <>
               <MapView onReady={setMap} />
+              <BoundaryLayer
+                map={map}
+                markers={filteredMarkers}
+                enabled={showSiggBoundaries}
+                onStatusChange={setSiggBoundaryStatus}
+              />
               <MarkerLayer
                 map={map}
                 markers={filteredMarkers}

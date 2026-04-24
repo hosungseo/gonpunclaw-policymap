@@ -244,6 +244,49 @@ test.describe("public UI polish", () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test("demo map can request VWorld sigungu boundaries", async ({ page }) => {
+    await page.route("**/api/boundaries/sigg?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          source: "vworld",
+          count: 0,
+          feature_collection: { type: "FeatureCollection", features: [] },
+        }),
+      });
+    });
+
+    await page.goto("/demo");
+    const requestPromise = page.waitForRequest("**/api/boundaries/sigg?**");
+    await page.getByLabel("시군구 경계 표시").check();
+
+    const request = await requestPromise;
+    expect(new URL(request.url()).searchParams.get("bbox")).toBeTruthy();
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test("demo map explains when sigungu boundaries are unavailable", async ({ page }) => {
+    await page.route("**/api/boundaries/sigg?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          disabled: true,
+          error: { code: "DISABLED", message: "VWorld API key is not configured." },
+        }),
+      });
+    });
+
+    await page.goto("/demo");
+    await page.getByLabel("시군구 경계 표시").check();
+
+    await expect(page.getByText("경계 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+
   test("mobile map lets users open and close search filters", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/demo");
