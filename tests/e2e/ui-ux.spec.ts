@@ -18,6 +18,7 @@ test.describe("public UI polish", () => {
     await expect(page.getByRole("link", { name: "지도 만들기" }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "샘플 지도 보기" })).toBeVisible();
     await expect(page.getByRole("link", { name: "엑셀 템플릿 받기" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "사용법 보기" })).toHaveAttribute("href", "/guide");
     await expectNoHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -25,10 +26,25 @@ test.describe("public UI polish", () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test("in-app guide explains the full publishing flow", async ({ page }) => {
+    await page.goto("/guide");
+
+    await expect(page.getByRole("heading", { name: "처음부터 끝까지 따라하기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "1. 엑셀 준비" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "2. 지도 만들기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "3. 공유와 관리" })).toBeVisible();
+    await expect(page.getByText("공개 지도 링크만 외부에 공유하세요.")).toBeVisible();
+    await expect(page.getByText("관리 페이지와 관리 토큰은 내부에만 보관합니다.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "템플릿 다운로드" })).toHaveAttribute("href", "/template.xlsx");
+    await expect(page.getByRole("link", { name: "지도 만들기" }).first()).toHaveAttribute("href", "/upload");
+    await expectNoHorizontalOverflow(page);
+  });
+
   test("upload form disables submission until a file is selected and shows the selected filename", async ({ page }) => {
     await page.goto("/upload");
 
     const submit = page.getByRole("button", { name: "지도 생성" });
+    await expect(page.getByRole("link", { name: "사용법 보기" })).toHaveAttribute("href", "/guide");
     await expect(page.getByText("한 행은 지도에 표시될 위치 1개입니다.")).toBeVisible();
     await expect(page.getByText("첫 번째 시트만 읽습니다.")).toBeVisible();
     await expect(page.getByText("E열 이후는 공개 지도 팝업에 추가 정보로 표시됩니다.")).toBeVisible();

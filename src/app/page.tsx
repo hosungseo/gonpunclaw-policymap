@@ -53,14 +53,9 @@ export default function Home() {
             <a href="#workflow" className="hover:text-zinc-950 dark:hover:text-white">흐름</a>
             <a href="#capabilities" className="hover:text-zinc-950 dark:hover:text-white">기능</a>
             <Link href="/demo" className="hover:text-zinc-950 dark:hover:text-white">샘플</Link>
-            <a
-              href="https://github.com/hosungseo/gonpunclaw-policymap/blob/main/docs/USER-GUIDE-KO.md"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-zinc-950 dark:hover:text-white"
-            >
+            <Link href="/guide" className="hover:text-zinc-950 dark:hover:text-white">
               가이드
-            </a>
+            </Link>
           </nav>
           <Link
             href="/upload"
@@ -118,14 +113,12 @@ export default function Home() {
               >
                 엑셀 템플릿 받기
               </a>
-              <a
-                href="https://github.com/hosungseo/gonpunclaw-policymap/blob/main/docs/USER-GUIDE-KO.md"
-                target="_blank"
-                rel="noreferrer"
+              <Link
+                href="/guide"
                 className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
               >
                 사용법 보기
-              </a>
+              </Link>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-2">

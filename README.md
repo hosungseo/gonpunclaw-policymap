@@ -13,6 +13,8 @@
   ·
   <a href="https://gonpunclaw-policymap.vercel.app/upload">지도 만들기</a>
   ·
+  <a href="https://gonpunclaw-policymap.vercel.app/guide">라이브 사용법</a>
+  ·
   <a href="./docs/USER-GUIDE-KO.md">사용자 가이드</a>
   ·
   <a href="./docs/sample-upload-template.xlsx">XLSX 템플릿</a>
@@ -76,6 +78,7 @@ GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 자동
 
 - `/` — 정책 지도 발행 흐름, 지도 미리보기, 업로드/템플릿/가이드 진입점
 - `/demo` — 업로드 없이 확인하는 샘플 공개 지도
+- `/guide` — 앱 안에서 보는 단계별 사용법과 문제 해결 안내
 - `/upload` — 지도 기본 정보, 컬럼 표시 이름, 엑셀 파일 선택
 - `/m/[slug]` — 공개 지도 검색, 필터, 범례, 표 보기
 - `/manage/[slug]` — 업로드한 지도 정보 수정, 엑셀 데이터 교체, CSV 내보내기, 실패 주소 재시도, 비공개 전환 및 삭제
@@ -104,7 +107,8 @@ E열 이후는 공개 지도 팝업에 표시되므로 전화번호, 이메일, 
 | D열 | 분류 | 행정 |
 | E열 이후 | 공개 팝업에 표시될 추가 정보 | 담당부서, 비고 등 |
 
-자세한 사용법은 [사용자 가이드](./docs/USER-GUIDE-KO.md)를 확인하세요.
+자세한 사용법은 라이브 앱의 [사용법 페이지](https://gonpunclaw-policymap.vercel.app/guide)나
+[문서형 사용자 가이드](./docs/USER-GUIDE-KO.md)를 확인하세요.
 
 ## 기술 구성
 

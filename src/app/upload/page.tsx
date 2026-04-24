@@ -31,10 +31,8 @@ export default function UploadPage() {
                 템플릿 다운로드
               </Link>
               <Link
-                href="https://github.com/hosungseo/gonpunclaw-policymap/blob/main/docs/USER-GUIDE-KO.md"
+                href="/guide"
                 className="inline-flex min-h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
-                target="_blank"
-                rel="noreferrer"
               >
                 사용법 보기
               </Link>
