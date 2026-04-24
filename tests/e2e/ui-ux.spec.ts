@@ -67,6 +67,16 @@ test.describe("public UI polish", () => {
     await expect(submit).toBeDisabled();
   });
 
+  test("upload preview warns about sensitive public columns", async ({ page }) => {
+    await page.goto("/upload");
+
+    await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "tests/fixtures/excel/sensitive_columns.csv"));
+
+    await expect(page.getByText("공개 전 삭제 권장 컬럼")).toBeVisible();
+    await expect(page.getByText("전화번호, 이메일")).toBeVisible();
+    await expect(page.getByText("해당 열은 공개 지도 팝업에 표시될 수 있습니다.")).toBeVisible();
+  });
+
   test("demo map shows a sample result without uploading", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("link", { name: "샘플 지도 보기" }).click();

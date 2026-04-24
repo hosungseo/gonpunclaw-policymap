@@ -23,7 +23,7 @@ const MAX_ROWS = 10_000;
 export function parseWorkbook(buf: ArrayBuffer | Uint8Array | Buffer): ParseResult {
   let wb: XLSX.WorkBook;
   try {
-    wb = XLSX.read(buf, { type: "buffer" });
+    wb = XLSX.read(buf, { type: "buffer", codepage: 65001 });
   } catch {
     return { ok: false, error: { code: "CORRUPT", message: "엑셀 파일을 읽을 수 없습니다." } };
   }

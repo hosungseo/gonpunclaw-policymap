@@ -41,8 +41,14 @@ type Status =
 type FilePreview =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "ready"; rows: ParsedRow[]; totalRows: number; skipped: number[] }
+  | { kind: "ready"; rows: ParsedRow[]; totalRows: number; skipped: number[]; sensitiveHeaders: string[] }
   | { kind: "error"; message: string };
+
+const SENSITIVE_HEADER_PATTERN = /개인|주민|생년|전화|연락처|휴대폰|핸드폰|이메일|email|e-mail|카톡|계좌|주소상세|상세주소/i;
+
+function detectSensitiveHeaders(headers: string[]) {
+  return headers.map((header) => header.trim()).filter((header) => header && SENSITIVE_HEADER_PATTERN.test(header));
+}
 
 export function UploadForm() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -116,6 +122,7 @@ export function UploadForm() {
         rows: parsed.rows.slice(0, 5),
         totalRows: parsed.rows.length,
         skipped: parsed.skipped_empty_address,
+        sensitiveHeaders: detectSensitiveHeaders(parsed.headers),
       });
     } catch {
       setFilePreview({ kind: "error", message: "파일 미리보기를 만들 수 없습니다." });
@@ -402,6 +409,15 @@ function FilePreviewPanel({ preview }: { preview: FilePreview }) {
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
           주소가 비어 있는 {preview.skipped.length.toLocaleString()}개 행은 제외됩니다.
         </p>
+      )}
+      {preview.sensitiveHeaders.length > 0 && (
+        <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+          <p className="font-semibold">공개 전 삭제 권장 컬럼</p>
+          <p className="mt-1">{preview.sensitiveHeaders.join(", ")}</p>
+          <p className="mt-1 text-amber-800 dark:text-amber-200">
+            해당 열은 공개 지도 팝업에 표시될 수 있습니다.
+          </p>
+        </div>
       )}
       <div className="mt-3 space-y-2">
         {preview.rows.map((row) => (
