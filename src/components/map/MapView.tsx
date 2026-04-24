@@ -22,20 +22,22 @@ const OSM_STYLE = {
 export function MapView({ center = DEFAULT_CENTER, zoom = 6, onReady }: MapViewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
+  const [centerLng, centerLat] = center;
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: ref.current,
       style: OSM_STYLE as unknown as maplibregl.StyleSpecification,
-      center, zoom,
+      center: [centerLng, centerLat],
+      zoom,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
     map.on("load", () => onReady?.(map));
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
-  }, [center[0], center[1], zoom, onReady]);
+  }, [centerLng, centerLat, zoom, onReady]);
 
   return <div ref={ref} className="w-full h-full" />;
 }
