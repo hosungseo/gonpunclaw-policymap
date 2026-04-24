@@ -1,24 +1,69 @@
-# GonpunClaw PolicyMap
+<p align="center">
+  <strong>GonpunClaw PolicyMap</strong>
+</p>
 
-> 주소가 들어 있는 엑셀만 올리면 공개 정책 지도를 만들 수 있는 셀프서비스 맵 퍼블리셔
+<p align="center">
+  주소가 들어 있는 엑셀만 올리면 공개 정책 지도를 만들 수 있는 셀프서비스 맵 퍼블리셔
+</p>
 
-[![Live](https://img.shields.io/badge/live-Vercel-blue)](https://gonpunclaw-policymap.vercel.app)
-[![Upload](https://img.shields.io/badge/start-upload-0ea5e9)](https://gonpunclaw-policymap.vercel.app/upload)
-[![Guide](https://img.shields.io/badge/guide-KO-22c55e)](./docs/USER-GUIDE-KO.md)
-[![Template](https://img.shields.io/badge/template-xlsx-f59e0b)](./docs/sample-upload-template.xlsx)
+<p align="center">
+  <a href="https://gonpunclaw-policymap.vercel.app">Live</a>
+  ·
+  <a href="https://gonpunclaw-policymap.vercel.app/upload">지도 만들기</a>
+  ·
+  <a href="./docs/USER-GUIDE-KO.md">사용자 가이드</a>
+  ·
+  <a href="./docs/sample-upload-template.xlsx">XLSX 템플릿</a>
+</p>
+
+<p align="center">
+  <a href="https://gonpunclaw-policymap.vercel.app">
+    <img alt="Live" src="https://img.shields.io/badge/live-Vercel-blue">
+  </a>
+  <a href="https://gonpunclaw-policymap.vercel.app/upload">
+    <img alt="Upload" src="https://img.shields.io/badge/start-upload-0ea5e9">
+  </a>
+  <a href="./docs/USER-GUIDE-KO.md">
+    <img alt="Guide" src="https://img.shields.io/badge/guide-KO-22c55e">
+  </a>
+  <a href="./docs/sample-upload-template.xlsx">
+    <img alt="Template" src="https://img.shields.io/badge/template-xlsx-f59e0b">
+  </a>
+</p>
+
+---
 
 GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 카카오 / VWorld / Juso 지오코더
 폴백 체인으로 좌표를 찾고, MapLibre + Supabase 백엔드로 공유 가능한 정책 지도를 생성하는
 프로젝트입니다.
 
-단순한 지도 뷰어가 아니라, 정책 데이터를 발행하고 검토하는 작업 흐름 전체를 다룹니다.
+## 한눈에 보기
 
-- 엑셀 업로드로 주소 목록을 지도 데이터로 변환
-- 지오코딩과 마커 저장 자동 처리
-- 공개 지도 링크와 관리 링크 즉시 발급
-- 공개 지도에서 검색, 분류 필터, 값 범위 필터, 표 보기 지원
-- 관리 토큰으로 제목, 설명, 컬럼 라벨, 공개 여부 수정
-- 운영자 신고/감사 로그 확인
+| 작업 | 지원 내용 |
+| --- | --- |
+| 지도 발행 | 엑셀 업로드로 주소 목록을 지도 데이터로 변환 |
+| 좌표 변환 | 카카오 / VWorld / Juso 지오코더 폴백 체인 |
+| 공개 공유 | 공개 지도 링크와 관리 링크 즉시 발급 |
+| 데이터 탐색 | 검색, 분류 필터, 값 범위 필터, 범례, 표 보기 |
+| 관리 | 관리 토큰으로 제목, 설명, 컬럼 라벨, 공개 여부 수정 |
+| 운영 | 신고 접수, 신고 관리, 감사 로그 확인 |
+
+## 빠른 시작
+
+1. [`템플릿`](./docs/sample-upload-template.xlsx)을 내려받습니다.
+2. A열 주소, B열 이름, C열 값, D열 분류를 채웁니다.
+3. [`/upload`](https://gonpunclaw-policymap.vercel.app/upload)에 업로드합니다.
+4. 발급된 공개 지도 링크를 공유하고, 관리 토큰은 따로 보관합니다.
+
+## 기술 구성
+
+| 영역 | 스택 |
+| --- | --- |
+| App | Next.js App Router, React, TypeScript, Tailwind CSS |
+| Map | MapLibre GL, OpenStreetMap raster tiles, marker clustering |
+| Data | Supabase, RLS, server route handlers |
+| Geocoding | Kakao, VWorld, Juso fallback chain |
+| Test | Vitest, Playwright |
 
 ## 프론트 페이지
 
