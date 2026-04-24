@@ -8,7 +8,7 @@ export const metadata = {
 const QUICK_STEPS = [
   {
     title: "1. 엑셀 준비",
-    body: "A열에는 주소, B열에는 이름, C열에는 대표 숫자, D열에는 분류를 넣습니다. 위치가 여러 개면 행을 여러 개 추가합니다.",
+    body: "주소는 필수이고, 숫자값과 분류는 선택입니다. 위치가 여러 개면 헤더 아래에 행을 여러 개 추가합니다.",
   },
   {
     title: "2. 지도 만들기",
@@ -21,11 +21,12 @@ const QUICK_STEPS = [
 ];
 
 const COLUMN_GUIDE = [
-  ["A열 주소", "필수", "서울 서초구 반포대로 58"],
-  ["B열 이름", "선택", "예시복지관"],
-  ["C열 대표값", "선택", "48"],
-  ["D열 분류", "선택", "복지"],
-  ["E열 이후", "선택", "담당부서, 비고"],
+  ["A열 주소", "필수", "지도에서 좌표로 바꿀 주소입니다.", "서울 서초구 반포대로 58"],
+  ["B열 이름", "권장", "지도 팝업과 표에서 보이는 이름입니다.", "예시 사용처"],
+  ["C열 숫자값", "선택", "지원한도처럼 비교할 숫자가 있을 때만 넣습니다.", "15"],
+  ["C열 단위", "선택", "업로드 화면에 입력하는 표시값입니다. 숫자 뒤에 붙습니다.", "만원"],
+  ["D열 필터 분류", "선택", "지도에서 색상과 필터로 나눌 기준입니다.", "주유소"],
+  ["E열 이후", "선택", "공개 지도 팝업에 추가 정보로 표시됩니다.", "지역, 사용가능항목, 비고"],
 ];
 
 const TROUBLESHOOTING = [
@@ -135,6 +136,10 @@ export default function GuidePage() {
               시설이나 사업장이 10개라면 헤더 아래에 데이터 행 10개를 넣습니다. 여러 시트가 있어도
               첫 번째 시트만 읽습니다.
             </p>
+            <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm leading-6 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+              C열 숫자값은 지원한도처럼 비교할 숫자가 있을 때만 넣습니다. 단위는 업로드 화면에서
+              만원, 건, 명처럼 따로 입력하면 됩니다.
+            </p>
           </div>
           <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
             <table className="min-w-[640px] text-left text-sm">
@@ -142,14 +147,16 @@ export default function GuidePage() {
                 <tr>
                   <th className="px-4 py-3 font-semibold">열</th>
                   <th className="px-4 py-3 font-semibold">필수 여부</th>
+                  <th className="px-4 py-3 font-semibold">무엇에 쓰이나요</th>
                   <th className="px-4 py-3 font-semibold">예시</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-zinc-950">
-                {COLUMN_GUIDE.map(([name, required, example]) => (
+                {COLUMN_GUIDE.map(([name, required, usage, example]) => (
                   <tr key={name} className="border-t border-zinc-200 dark:border-zinc-800">
                     <td className="px-4 py-3 font-medium text-zinc-950 dark:text-zinc-100">{name}</td>
                     <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{required}</td>
+                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{usage}</td>
                     <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">{example}</td>
                   </tr>
                 ))}

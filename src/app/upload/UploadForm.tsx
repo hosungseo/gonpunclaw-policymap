@@ -421,14 +421,21 @@ export function UploadForm() {
             <div>
               <h2 className="text-base font-semibold">엑셀 컬럼 표시 이름</h2>
               <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                공개 지도 필터와 팝업에 표시될 이름입니다. 비워 두면 기본값을 사용합니다.
+                주소만 있어도 업로드할 수 있습니다. 숫자값과 분류가 있으면 지도에서 비교와 필터가 쉬워집니다.
               </p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <LabelInput id="value_label" name="value_label" label="C열 대표값" placeholder="예: 예산" />
-              <LabelInput id="value_unit" name="value_unit" label="단위" placeholder="예: 원" />
-              <LabelInput id="category_label" name="category_label" label="D열 분류" placeholder="예: 대상" />
+              <LabelInput id="value_label" name="value_label" label="C열 숫자값(선택)" placeholder="예: 지원한도" />
+              <LabelInput id="value_unit" name="value_unit" label="C열 단위(선택)" placeholder="예: 만원" />
+              <LabelInput id="category_label" name="category_label" label="D열 필터 분류(선택)" placeholder="예: 업종" />
+            </div>
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+              <p>A열 주소만 필수이고, B열 이름·C열 숫자값·D열 필터 분류는 선택입니다.</p>
+              <p className="mt-1">C열 숫자값은 지원한도나 예산처럼 비교할 숫자가 있을 때만 넣습니다.</p>
+              <p className="mt-1">C열 단위는 숫자 뒤에 붙는 표시입니다. 예: 만원, 건, 명</p>
+              <p className="mt-1">D열 필터 분류는 사용처를 나누는 기준입니다. 예: 주유소, 충전소, 물류·운송</p>
             </div>
           </section>
 
@@ -448,18 +455,18 @@ export function UploadForm() {
                   <tr>
                     <th className="px-3 py-2 font-semibold">A열 주소</th>
                     <th className="px-3 py-2 font-semibold">B열 이름</th>
-                    <th className="px-3 py-2 font-semibold">C열 대표값</th>
-                    <th className="px-3 py-2 font-semibold">D열 분류</th>
+                    <th className="px-3 py-2 font-semibold">C열 숫자값</th>
+                    <th className="px-3 py-2 font-semibold">D열 필터 분류</th>
                     <th className="px-3 py-2 font-semibold">E열 이후</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-t border-zinc-200 dark:border-zinc-800">
                     <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">서울 서초구 반포대로 58</td>
-                    <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">예시복지관</td>
-                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">48</td>
-                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">복지</td>
-                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">담당부서, 비고</td>
+                    <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">예시 사용처</td>
+                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">15</td>
+                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">주유소</td>
+                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">지역, 사용가능항목, 비고</td>
                   </tr>
                 </tbody>
               </table>
@@ -495,7 +502,9 @@ export function UploadForm() {
             <div className="mt-2 space-y-1 text-xs leading-5 text-blue-800 dark:text-blue-200">
               <p>한 행은 지도에 표시될 위치 1개입니다.</p>
               <p>첫 번째 시트만 읽습니다.</p>
-              <p>A열 주소, B열 이름, C열 대표값, D열 분류를 읽습니다.</p>
+              <p>A열 주소는 필수입니다.</p>
+              <p>B열 이름은 지도 팝업 제목으로 쓰입니다.</p>
+              <p>C열 숫자값과 D열 필터 분류는 필요할 때만 넣습니다.</p>
               <p>E열 이후는 공개 지도 팝업에 추가 정보로 표시됩니다.</p>
             </div>
           </div>

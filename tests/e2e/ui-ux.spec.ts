@@ -33,6 +33,8 @@ test.describe("public UI polish", () => {
     await expect(page.getByRole("heading", { name: "1. 엑셀 준비" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "2. 지도 만들기" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "3. 공유와 관리" })).toBeVisible();
+    await expect(page.getByText("주소는 필수이고, 숫자값과 분류는 선택입니다.")).toBeVisible();
+    await expect(page.getByText("C열 숫자값은 지원한도처럼 비교할 숫자가 있을 때만 넣습니다.")).toBeVisible();
     await expect(page.getByText("공개 지도 링크만 외부에 공유하세요.")).toBeVisible();
     await expect(page.getByText("관리 페이지와 관리 토큰은 내부에만 보관합니다.", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "템플릿 다운로드" })).toHaveAttribute("href", "/template.xlsx");
@@ -47,10 +49,14 @@ test.describe("public UI polish", () => {
     await expect(page.getByRole("link", { name: "사용법 보기" })).toHaveAttribute("href", "/guide");
     await expect(page.getByText("한 행은 지도에 표시될 위치 1개입니다.")).toBeVisible();
     await expect(page.getByText("첫 번째 시트만 읽습니다.")).toBeVisible();
-    await expect(page.getByText("E열 이후는 공개 지도 팝업에 추가 정보로 표시됩니다.")).toBeVisible();
+    await expect(page.getByText("A열 주소만 필수이고, B열 이름·C열 숫자값·D열 필터 분류는 선택입니다.")).toBeVisible();
+    await expect(page.getByText("C열 단위는 숫자 뒤에 붙는 표시입니다. 예: 만원, 건, 명")).toBeVisible();
+    await expect(page.getByLabel("C열 숫자값(선택)")).toBeVisible();
+    await expect(page.getByLabel("C열 단위(선택)")).toBeVisible();
+    await expect(page.getByLabel("D열 필터 분류(선택)")).toBeVisible();
     await expect(page.getByRole("heading", { name: "엑셀 작성 예시" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "A열 주소" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "C열 대표값" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "C열 숫자값" })).toBeVisible();
     const exampleBox = await page.getByTestId("excel-example-card").boundingBox();
     expect(exampleBox?.width).toBeGreaterThan(560);
     await expect(page.getByText("이 행은 지도에서 예시복지관 위치 1개로 표시됩니다.")).toBeVisible();
