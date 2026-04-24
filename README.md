@@ -1,7 +1,34 @@
 # GonpunClaw PolicyMap
 
-엑셀 파일로 만드는 공개 정책 지도. 주소가 들어 있는 시트를 올리면 카카오 / VWorld / Juso
-지오코더 폴백 체인으로 좌표를 찾아 MapLibre + Supabase 백엔드로 공유 가능한 지도를 생성합니다.
+> 주소가 들어 있는 엑셀만 올리면 공개 정책 지도를 만들 수 있는 셀프서비스 맵 퍼블리셔
+
+[![Live](https://img.shields.io/badge/live-Vercel-blue)](https://gonpunclaw-policymap.vercel.app)
+[![Upload](https://img.shields.io/badge/start-upload-0ea5e9)](https://gonpunclaw-policymap.vercel.app/upload)
+[![Guide](https://img.shields.io/badge/guide-KO-22c55e)](./docs/USER-GUIDE-KO.md)
+[![Template](https://img.shields.io/badge/template-xlsx-f59e0b)](./docs/sample-upload-template.xlsx)
+
+GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 카카오 / VWorld / Juso 지오코더
+폴백 체인으로 좌표를 찾고, MapLibre + Supabase 백엔드로 공유 가능한 정책 지도를 생성하는
+프로젝트입니다.
+
+단순한 지도 뷰어가 아니라,
+
+- 엑셀 업로드로 시작하고
+- 지오코딩과 마커 저장을 자동 처리하고
+- 공개 링크와 관리 링크를 바로 만들며
+- 운영자는 신고/감사 로그까지 확인할 수 있는
+
+정책지도 발행 워크플로를 목표로 합니다.
+
+## 프론트 페이지
+
+- 라이브 URL: https://gonpunclaw-policymap.vercel.app
+- 업로드 페이지: https://gonpunclaw-policymap.vercel.app/upload
+- 사용자 가이드: [`docs/USER-GUIDE-KO.md`](docs/USER-GUIDE-KO.md)
+- 업로드 템플릿: [`docs/sample-upload-template.xlsx`](docs/sample-upload-template.xlsx)
+
+처음 보는 사용자에게 보여줄 기본 진입점은 `/` 랜딩 페이지입니다. 실사용자는 `/upload` 에서
+`.xlsx` 템플릿을 받아 바로 업로드를 시작할 수 있습니다.
 
 ## 라우트 개요
 
