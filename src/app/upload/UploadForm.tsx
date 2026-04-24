@@ -3,6 +3,16 @@
 import { useId, useState } from "react";
 import Link from "next/link";
 
+async function copyText(text: string) {
+  if (typeof navigator === "undefined" || !navigator.clipboard) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type UploadResponse =
   | {
       ok: true;
@@ -30,7 +40,14 @@ type Status =
 export function UploadForm() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [selectedFileName, setSelectedFileName] = useState<string>("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const fileInputId = useId();
+
+  async function handleCopy(key: string, text: string) {
+    const ok = await copyText(text);
+    setCopiedField(ok ? key : null);
+    if (ok) window.setTimeout(() => setCopiedField((current) => (current === key ? null : current)), 1500);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -77,14 +94,32 @@ export function UploadForm() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">공개 지도 주소</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium">공개 지도 주소</p>
+            <button
+              type="button"
+              onClick={() => handleCopy("public", `${window.location.origin}${url}`)}
+              className="text-xs text-blue-700 underline"
+            >
+              {copiedField === "public" ? "복사됨" : "복사"}
+            </button>
+          </div>
           <Link href={url} className="block break-all rounded border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm text-blue-700 underline dark:border-zinc-800 dark:bg-zinc-900">
             {url}
           </Link>
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">관리 페이지</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium">관리 페이지</p>
+            <button
+              type="button"
+              onClick={() => handleCopy("manage", `${window.location.origin}${manageUrl}`)}
+              className="text-xs text-blue-700 underline"
+            >
+              {copiedField === "manage" ? "복사됨" : "복사"}
+            </button>
+          </div>
           <Link href={manageUrl} className="block break-all rounded border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm text-blue-700 underline dark:border-zinc-800 dark:bg-zinc-900">
             {manageUrl}
           </Link>
@@ -94,7 +129,16 @@ export function UploadForm() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium text-amber-700 dark:text-amber-400">관리 토큰 (한 번만 표시됩니다)</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">관리 토큰 (한 번만 표시됩니다)</p>
+            <button
+              type="button"
+              onClick={() => handleCopy("token", status.adminToken)}
+              className="text-xs text-amber-700 underline dark:text-amber-300"
+            >
+              {copiedField === "token" ? "복사됨" : "복사"}
+            </button>
+          </div>
           <code className="block break-all rounded border border-amber-300 bg-amber-50 px-3 py-2 font-mono text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
             {status.adminToken}
           </code>
@@ -152,7 +196,7 @@ export function UploadForm() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="space-y-1">
           <label className="block text-sm font-medium" htmlFor="value_label">
-            값 컬럼 라벨
+            C열 값의 이름
           </label>
           <input
             id="value_label"
@@ -176,7 +220,7 @@ export function UploadForm() {
         </div>
         <div className="space-y-1">
           <label className="block text-sm font-medium" htmlFor="category_label">
-            분류 컬럼 라벨
+            D열 분류의 이름
           </label>
           <input
             id="category_label"

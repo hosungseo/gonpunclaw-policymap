@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Map as MLMap } from "maplibre-gl";
 import maplibregl from "maplibre-gl";
 
@@ -18,6 +18,7 @@ export interface MarkerLayerProps {
   map: MLMap | null;
   markers: MarkerData[];
   valueLabel: string | null;
+  valueUnit: string | null;
   categoryLabel: string | null;
   filterCategories: Set<string> | null;
   valueRange: [number, number] | null;
@@ -25,7 +26,9 @@ export interface MarkerLayerProps {
 
 const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#64748b", "#a855f7", "#22c55e", "#3b82f6"];
 
-export function MarkerLayer({ map, markers, valueLabel, categoryLabel, filterCategories, valueRange }: MarkerLayerProps) {
+export function MarkerLayer({ map, markers, valueLabel, valueUnit, categoryLabel, filterCategories, valueRange }: MarkerLayerProps) {
+  const didFitInitialBounds = useRef(false);
+
   useEffect(() => {
     if (!map) return;
     const srcId = "markers-src";
@@ -99,7 +102,9 @@ export function MarkerLayer({ map, markers, valueLabel, categoryLabel, filterCat
         const p = f.properties as Record<string, string>;
         const extraObj = JSON.parse(p.extra || "{}") as Record<string, unknown>;
         const extraHtml = Object.entries(extraObj).map(([k, v]) => `<div><b>${k}:</b> ${String(v)}</div>`).join("");
-        const valHtml = p.value && p.value !== "null" ? `<div><b>${valueLabel ?? "값"}:</b> ${Number(p.value).toLocaleString()}</div>` : "";
+        const valHtml = p.value && p.value !== "null"
+          ? `<div><b>${valueLabel ?? "값"}:</b> ${Number(p.value).toLocaleString()}${valueUnit ?? ""}</div>`
+          : "";
         const catHtml = p.category ? `<div><b>${categoryLabel ?? "분류"}:</b> ${p.category}</div>` : "";
         new maplibregl.Popup().setLngLat([lng, lat]).setHTML(
           `<div class="text-sm">
@@ -121,12 +126,15 @@ export function MarkerLayer({ map, markers, valueLabel, categoryLabel, filterCat
       map.on("mouseleave", "points", () => (map.getCanvas().style.cursor = ""));
     }
 
-    if (filtered.length > 0) {
+    if (!didFitInitialBounds.current && filtered.length > 0) {
       const bounds = new maplibregl.LngLatBounds();
       for (const m of filtered) bounds.extend([m.lng, m.lat]);
-      if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 40, maxZoom: 14, duration: 500 });
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 40, maxZoom: 14, duration: 500 });
+        didFitInitialBounds.current = true;
+      }
     }
-  }, [map, markers, valueLabel, categoryLabel, filterCategories, valueRange]);
+  }, [map, markers, valueLabel, valueUnit, categoryLabel, filterCategories, valueRange]);
 
   return null;
 }
