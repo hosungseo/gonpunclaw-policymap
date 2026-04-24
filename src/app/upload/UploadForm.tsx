@@ -344,6 +344,38 @@ export function UploadForm() {
             </div>
           </div>
 
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950">
+            <h2 className="text-sm font-semibold">엑셀 작성 예시</h2>
+            <p className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
+              엑셀 한 줄이 지도 위치 1개가 됩니다.
+            </p>
+            <div className="mt-3 overflow-x-auto rounded-md border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+              <table className="min-w-[560px] text-left text-xs">
+                <thead className="bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                  <tr>
+                    <th className="px-3 py-2 font-semibold">A열 주소</th>
+                    <th className="px-3 py-2 font-semibold">B열 이름</th>
+                    <th className="px-3 py-2 font-semibold">C열 대표값</th>
+                    <th className="px-3 py-2 font-semibold">D열 분류</th>
+                    <th className="px-3 py-2 font-semibold">E열 이후</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-zinc-200 dark:border-zinc-800">
+                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">서울 서초구 반포대로 58</td>
+                    <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">예시복지관</td>
+                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">48</td>
+                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">복지</td>
+                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-300">담당부서, 비고</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
+              이 행은 지도에서 예시복지관 위치 1개로 표시됩니다.
+            </p>
+          </div>
+
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
             <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">공개 전 확인</p>
             <p className="mt-2 text-xs leading-5 text-amber-800 dark:text-amber-200">
