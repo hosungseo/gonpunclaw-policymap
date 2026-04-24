@@ -11,7 +11,11 @@ test.describe("public UI polish", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: /엑셀 주소 목록/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: "지도 만들기" })).toBeVisible();
+    await expect(page.getByText("업무 흐름 그대로")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "데이터 준비", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "지도 검토", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "운영 관리", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "지도 만들기" }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "엑셀 템플릿 받기" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
