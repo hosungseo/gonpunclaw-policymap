@@ -41,6 +41,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [focusedMarkerId, setFocusedMarkerId] = useState<string | null>(null);
+  const [showMobileTools, setShowMobileTools] = useState(false);
 
   async function handleCopy() {
     const ok = await copyText(typeof window === "undefined" ? `/m/${slug}` : window.location.href);
@@ -86,6 +87,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
   function handleFocusMarker(marker: MarkerData) {
     setViewMode("map");
+    setShowMobileTools(false);
     setFocusedMarkerId(marker.id);
     if (!map) return;
     map.flyTo({ center: [marker.lng, marker.lat], zoom: 13, essential: true });
@@ -114,7 +116,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           )}
         </div>
         <div className="flex items-center gap-2">
-          <div className="hidden rounded-lg border border-zinc-300 bg-zinc-50 p-0.5 text-xs sm:flex dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="hidden rounded-lg border border-zinc-300 bg-zinc-50 p-0.5 text-xs md:flex dark:border-zinc-700 dark:bg-zinc-900">
             <button
               type="button"
               onClick={() => setViewMode("map")}
@@ -140,8 +142,11 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[340px_1fr]">
-        <aside className="order-2 overflow-y-auto border-t border-zinc-200 bg-zinc-50 p-4 text-sm md:order-1 md:border-r md:border-t-0 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="relative grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[340px_1fr]">
+        <aside
+          id="map-tools-panel"
+          className={`order-2 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950 md:static md:order-1 md:block md:max-h-none md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:shadow-none ${showMobileTools ? "absolute inset-x-3 top-[96px] z-20 max-h-[calc(100dvh-180px)] rounded-xl border shadow-xl" : "hidden"}`}
+        >
           <section className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
             <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-100">지도 사용법</h2>
             <p className="mt-2 text-xs leading-5 text-blue-800 dark:text-blue-200">
@@ -252,16 +257,27 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
         </aside>
 
         <main className="order-1 relative bg-white md:order-2 dark:bg-zinc-950">
-          <div className="flex flex-col gap-2 border-b border-zinc-200 bg-white px-4 py-3 text-xs sm:hidden dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex flex-col gap-2 border-b border-zinc-200 bg-white px-4 py-3 text-xs md:hidden dark:border-zinc-800 dark:bg-zinc-950">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+              <span className="min-w-0 font-semibold text-zinc-700 dark:text-zinc-300">
                 {filteredMarkers.length.toLocaleString()}곳 표시 중
               </span>
-              {hasActiveFilters && (
-                <button type="button" onClick={handleResetFilters} className="font-medium text-blue-700 dark:text-blue-400">
-                  초기화
+              <div className="flex shrink-0 items-center gap-3">
+                {hasActiveFilters && (
+                  <button type="button" onClick={handleResetFilters} className="whitespace-nowrap font-medium text-blue-700 dark:text-blue-400">
+                    초기화
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-controls="map-tools-panel"
+                  aria-expanded={showMobileTools}
+                  onClick={() => setShowMobileTools((current) => !current)}
+                  className="whitespace-nowrap font-medium text-blue-700 dark:text-blue-400"
+                >
+                  {showMobileTools ? "검색·필터 닫기" : "검색·필터 열기"}
                 </button>
-              )}
+              </div>
             </div>
             <div className="grid w-full grid-cols-2 gap-2">
               <button

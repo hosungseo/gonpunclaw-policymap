@@ -84,6 +84,42 @@ test.describe("public UI polish", () => {
     await expect(page.getByText("해당 열은 공개 지도 팝업에 표시될 수 있습니다.")).toBeVisible();
   });
 
+  test("upload success flow separates public sharing from private management", async ({ page }) => {
+    await page.route("**/api/upload", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          slug: "sample-map",
+          admin_token: "admin-token-123",
+          inserted: 2,
+          failed: 0,
+          geocoder_stats: { kakao: 2 },
+          failure_preview: [],
+        }),
+      });
+    });
+
+    await page.goto("/upload");
+    await page.getByLabel(/지도 제목/).fill("테스트 정책 지도");
+    await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "tests/fixtures/excel/valid_small.xlsx"));
+    await expect(page.getByText("2개 위치")).toBeVisible();
+
+    await page.getByRole("button", { name: "지도 생성" }).click();
+
+    await expect(page.getByRole("heading", { name: "지도가 생성되었습니다" })).toBeVisible();
+    await expect(page.getByText("공개 지도 링크는 외부에 공유해도 됩니다.")).toBeVisible();
+    await expect(page.getByText("관리 페이지와 관리 토큰은 내부에만 보관하세요.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "/m/sample-map" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "/manage/sample-map" })).toBeVisible();
+    await expect(page.getByText("다음 단계")).toBeVisible();
+    await expect(page.getByText("1. 공개 지도 확인")).toBeVisible();
+    await expect(page.getByText("2. 공개 링크 공유")).toBeVisible();
+    await expect(page.getByText("3. 관리 토큰 저장")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+
   test("demo map shows a sample result without uploading", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("link", { name: "샘플 지도 보기" }).click();
@@ -96,6 +132,22 @@ test.describe("public UI polish", () => {
     await page.getByRole("button", { name: "표" }).click();
     await expect(page.getByRole("cell", { name: "서초복지관" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "해운대센터" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test("mobile map lets users open and close search filters", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/demo");
+
+    await expect(page.getByRole("button", { name: "검색·필터 열기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "지도 사용법" })).toBeHidden();
+
+    await page.getByRole("button", { name: "검색·필터 열기" }).click();
+    await expect(page.getByRole("button", { name: "검색·필터 닫기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "지도 사용법" })).toBeVisible();
+
+    await page.getByRole("button", { name: "검색·필터 닫기" }).click();
+    await expect(page.getByRole("heading", { name: "지도 사용법" })).toBeHidden();
     await expectNoHorizontalOverflow(page);
   });
 });
