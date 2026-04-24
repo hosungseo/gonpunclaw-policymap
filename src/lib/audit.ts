@@ -4,7 +4,10 @@ import { supabaseServer } from "@/lib/supabase/server";
 export type AuditAction =
   | "map.create"
   | "map.update"
+  | "map.replace_data"
   | "map.delete"
+  | "upload_job.create"
+  | "upload_job.complete"
   | "admin.auth_fail"
   | "report.create"
   | "report.update";

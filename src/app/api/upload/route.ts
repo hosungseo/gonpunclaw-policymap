@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { generateAdminToken, generateSlug, hashAdminToken } from "@/lib/tokens";
 import { LIMITS, ipKey, rateLimit } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
+import { detectSensitiveHeaders, sensitiveHeadersMessage } from "@/lib/upload/sensitive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,6 +85,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadOk | Up
   const parsed = parseWorkbook(buf);
   if (!parsed.ok) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+  }
+  const sensitiveHeaders = detectSensitiveHeaders(parsed.headers);
+  if (sensitiveHeaders.length > 0) {
+    return NextResponse.json(
+      { ok: false, error: { code: "SENSITIVE_HEADERS", message: sensitiveHeadersMessage(sensitiveHeaders) } },
+      { status: 400 },
+    );
   }
 
   const chain = defaultChainFromEnv();

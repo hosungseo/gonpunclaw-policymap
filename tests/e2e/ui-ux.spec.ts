@@ -85,14 +85,36 @@ test.describe("public UI polish", () => {
   });
 
   test("upload success flow separates public sharing from private management", async ({ page }) => {
-    await page.route("**/api/upload", async (route) => {
+    await page.route("**/api/upload/jobs", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           ok: true,
+          job_id: "job-1",
+          status: "pending",
           slug: "sample-map",
           admin_token: "admin-token-123",
+          total: 2,
+          processed: 0,
+          inserted: 0,
+          failed: 0,
+          geocoder_stats: {},
+          failure_preview: [],
+        }),
+      });
+    });
+    await page.route("**/api/upload/jobs/job-1/process", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          job_id: "job-1",
+          status: "completed",
+          slug: "sample-map",
+          total: 2,
+          processed: 2,
           inserted: 2,
           failed: 0,
           geocoder_stats: { kakao: 2 },

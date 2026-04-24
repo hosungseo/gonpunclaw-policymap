@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { isStaffAuthorized, staffAuthConfig } from "@/lib/staff-auth";
 import { ALLOWED_REPORT_STATUSES, type ReportStatus } from "@/app/api/staff/reports/update/route";
+import { reportStatusLabel } from "@/lib/reports/status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +11,13 @@ type ReportRow = {
   created_at: string;
   status: string;
   map_id: string | null;
+  map: { title: string; slug: string } | null;
   reporter_ip_hash: string | null;
   reason: string;
+};
+
+type RawReportRow = Omit<ReportRow, "map"> & {
+  map: { title: string; slug: string } | Array<{ title: string; slug: string }> | null;
 };
 
 const DEFAULT_LIMIT = 100;
@@ -52,13 +58,16 @@ async function loadRows(status: ReportStatus | null, limit: number): Promise<Rep
   const sb = supabaseServer();
   let q = sb
     .from("reports")
-    .select("id, created_at, status, map_id, reporter_ip_hash, reason")
+    .select("id, created_at, status, map_id, reporter_ip_hash, reason, map:maps(title, slug)")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (status) q = q.eq("status", status);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return (data ?? []) as ReportRow[];
+  return ((data ?? []) as RawReportRow[]).map((row) => ({
+    ...row,
+    map: Array.isArray(row.map) ? row.map[0] ?? null : row.map,
+  }));
 }
 
 export default async function StaffReportsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -181,7 +190,7 @@ function ReportsView({
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Staff</p>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">신고 관리</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            최근 신고 {rows.length}건 {status ? `· 상태 ${status}` : "· 모든 상태"} · 최대 {limit}건
+            최근 신고 {rows.length}건 {status ? `· 상태 ${reportStatusLabel(status)}` : "· 모든 상태"} · 최대 {limit}건
           </p>
           <nav className="pt-1 text-xs text-zinc-500">
             <a className="underline hover:text-zinc-900 dark:hover:text-zinc-200" href="/staff/audit">
@@ -205,7 +214,7 @@ function ReportsView({
       >
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400" htmlFor="status">
-            Status
+            상태
           </label>
           <select
             id="status"
@@ -216,7 +225,7 @@ function ReportsView({
             <option value="">(전체)</option>
             {ALLOWED_REPORT_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {reportStatusLabel(s)}
               </option>
             ))}
           </select>
@@ -254,10 +263,10 @@ function ReportsView({
           <thead className="bg-zinc-50 dark:bg-zinc-900">
             <tr className="text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
               <th className="px-3 py-2">created_at</th>
-              <th className="px-3 py-2">status</th>
-              <th className="px-3 py-2">map_id</th>
+              <th className="px-3 py-2">상태</th>
+              <th className="px-3 py-2">지도</th>
               <th className="px-3 py-2">reporter_ip_hash</th>
-              <th className="px-3 py-2">reason</th>
+              <th className="px-3 py-2">사유</th>
               <th className="px-3 py-2">처리</th>
             </tr>
           </thead>
@@ -294,11 +303,18 @@ function ReportRowView({ row, returnTo }: { row: ReportRow; returnTo: string }) 
         <span
           className={`inline-flex items-center rounded border px-2 py-0.5 font-mono text-xs ${statusClass}`}
         >
-          {row.status}
+          {reportStatusLabel(row.status)}
         </span>
       </td>
-      <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-600 dark:text-zinc-400">
-        {row.map_id ?? "—"}
+      <td className="px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300">
+        {row.map?.slug ? (
+          <a className="font-medium text-blue-700 underline dark:text-blue-400" href={`/m/${row.map.slug}`}>
+            {row.map.title || row.map.slug}
+          </a>
+        ) : (
+          <span className="font-mono text-zinc-500">{row.map_id ?? "—"}</span>
+        )}
+        {row.map?.slug && <p className="mt-1 font-mono text-[11px] text-zinc-500">{row.map.slug}</p>}
       </td>
       <td
         className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-600 dark:text-zinc-400"
@@ -328,7 +344,7 @@ function ReportRowView({ row, returnTo }: { row: ReportRow; returnTo: string }) 
           >
             {ALLOWED_REPORT_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {reportStatusLabel(s)}
               </option>
             ))}
           </select>

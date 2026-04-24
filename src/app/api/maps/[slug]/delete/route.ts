@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { verifyAdminTokenForMap } from "@/lib/admin-auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
+import { LIMITS, ipKey, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,14 @@ export async function POST(
   context: { params: Promise<{ slug: string }> },
 ): Promise<NextResponse<DeleteOk | DeleteErr>> {
   const { slug } = await context.params;
+
+  const limit = rateLimit(ipKey(req, "admin-delete"), LIMITS.deleteMap);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { ok: false, error: { code: "RATE_LIMITED", message: "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요." } },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) } },
+    );
+  }
 
   let body: { admin_token?: string } | null = null;
   try {

@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import Link from "next/link";
 import { parseWorkbook, type ParsedRow } from "@/lib/excel/parse";
+import { detectSensitiveHeaders } from "@/lib/upload/sensitive";
 
 async function copyText(text: string) {
   if (typeof navigator === "undefined" || !navigator.clipboard) return false;
@@ -26,6 +27,23 @@ type UploadResponse =
     }
   | { ok: false; error: { code: string; message: string } };
 
+type UploadJobResponse =
+  | {
+      ok: true;
+      job_id: string;
+      status: "pending" | "processing" | "completed" | "failed";
+      slug: string;
+      admin_token?: string;
+      total: number;
+      processed: number;
+      inserted: number;
+      failed: number;
+      geocoder_stats: Record<string, number>;
+      failure_preview?: FailurePreviewItem[];
+      error_message?: string | null;
+    }
+  | { ok: false; error: { code: string; message: string } };
+
 type FailurePreviewItem = {
   row_index: number;
   address_raw: string;
@@ -36,6 +54,15 @@ type FailurePreviewItem = {
 type Status =
   | { kind: "idle" }
   | { kind: "uploading" }
+  | {
+      kind: "processing";
+      slug: string;
+      adminToken: string;
+      processed: number;
+      total: number;
+      inserted: number;
+      failed: number;
+    }
   | { kind: "error"; message: string }
   | {
       kind: "success";
@@ -52,12 +79,6 @@ type FilePreview =
   | { kind: "loading" }
   | { kind: "ready"; rows: ParsedRow[]; totalRows: number; skipped: number[]; sensitiveHeaders: string[] }
   | { kind: "error"; message: string };
-
-const SENSITIVE_HEADER_PATTERN = /개인|주민|생년|전화|연락처|휴대폰|핸드폰|이메일|email|e-mail|카톡|계좌|주소상세|상세주소/i;
-
-function detectSensitiveHeaders(headers: string[]) {
-  return headers.map((header) => header.trim()).filter((header) => header && SENSITIVE_HEADER_PATTERN.test(header));
-}
 
 export function UploadForm() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -80,20 +101,24 @@ export function UploadForm() {
     setStatus({ kind: "uploading" });
     let res: Response;
     try {
-      res = await fetch("/api/upload", { method: "POST", body: fd });
+      res = await fetch("/api/upload/jobs", { method: "POST", body: fd });
     } catch {
       setStatus({ kind: "error", message: "네트워크 오류가 발생했습니다." });
       return;
     }
-    let json: UploadResponse;
+    let json: UploadJobResponse | UploadResponse;
     try {
-      json = (await res.json()) as UploadResponse;
+      json = (await res.json()) as UploadJobResponse | UploadResponse;
     } catch {
       setStatus({ kind: "error", message: `서버 응답이 올바르지 않습니다 (${res.status}).` });
       return;
     }
     if (!json.ok) {
       setStatus({ kind: "error", message: json.error.message });
+      return;
+    }
+    if ("job_id" in json) {
+      await runUploadJob(json);
       return;
     }
     setStatus({
@@ -104,6 +129,58 @@ export function UploadForm() {
       failed: json.failed,
       stats: json.geocoder_stats,
       failurePreview: json.failure_preview ?? [],
+    });
+  }
+
+  async function runUploadJob(initial: Extract<UploadJobResponse, { ok: true }>) {
+    let current = initial;
+    const adminToken = initial.admin_token ?? "";
+    while (current.status === "pending" || current.status === "processing") {
+      setStatus({
+        kind: "processing",
+        slug: current.slug,
+        adminToken,
+        processed: current.processed,
+        total: current.total,
+        inserted: current.inserted,
+        failed: current.failed,
+      });
+
+      let res: Response;
+      try {
+        res = await fetch(`/api/upload/jobs/${current.job_id}/process`, { method: "POST" });
+      } catch {
+        setStatus({ kind: "error", message: "주소 변환 중 네트워크 오류가 발생했습니다." });
+        return;
+      }
+
+      let json: UploadJobResponse;
+      try {
+        json = (await res.json()) as UploadJobResponse;
+      } catch {
+        setStatus({ kind: "error", message: `작업 응답이 올바르지 않습니다 (${res.status}).` });
+        return;
+      }
+      if (!json.ok) {
+        setStatus({ kind: "error", message: json.error.message });
+        return;
+      }
+      current = json;
+    }
+
+    if (current.status === "failed") {
+      setStatus({ kind: "error", message: current.error_message ?? "주소 변환 작업에 실패했습니다." });
+      return;
+    }
+
+    setStatus({
+      kind: "success",
+      slug: current.slug,
+      adminToken,
+      inserted: current.inserted,
+      failed: current.failed,
+      stats: current.geocoder_stats,
+      failurePreview: current.failure_preview ?? [],
     });
   }
 
@@ -137,6 +214,25 @@ export function UploadForm() {
     } catch {
       setFilePreview({ kind: "error", message: "파일 미리보기를 만들 수 없습니다." });
     }
+  }
+
+  if (status.kind === "processing") {
+    const percent = status.total > 0 ? Math.round((status.processed / status.total) * 100) : 0;
+    return (
+      <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">주소 변환 진행 중</p>
+        <h2 className="mt-2 text-2xl font-semibold">업로드 작업을 처리하고 있습니다</h2>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          {status.processed.toLocaleString()} / {status.total.toLocaleString()}개 주소 처리 · 성공 {status.inserted.toLocaleString()}개 · 실패 {status.failed.toLocaleString()}개
+        </p>
+        <div className="mt-5 h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+          <div className="h-full rounded-full bg-blue-700 transition-all" style={{ width: `${Math.max(4, percent)}%` }} />
+        </div>
+        <p className="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+          창을 닫지 않으면 작업이 계속 진행됩니다. 완료되면 공개 지도 링크와 관리 토큰이 표시됩니다.
+        </p>
+      </section>
+    );
   }
 
   if (status.kind === "success") {

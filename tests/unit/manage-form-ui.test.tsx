@@ -36,5 +36,8 @@ describe("ManageForm UI", () => {
     expect(document.body.textContent).toContain("비공개로 전환하면 공개 링크 접속만 막고 데이터는 보관됩니다.");
     expect(document.body.textContent).toContain("영구 삭제는 공개 링크, 마커 데이터, 관리 페이지를 복구할 수 없게 제거합니다.");
     expect(document.body.textContent).toContain("삭제 대신 임시로 숨기려면 공개 체크를 해제하세요.");
+    expect(document.body.textContent).toContain("엑셀 데이터 교체");
+    expect(document.body.textContent).toContain("기존 마커를 새 엑셀 내용으로 교체합니다.");
+    expect(document.body.textContent).toContain("관리 토큰과 공개 링크는 그대로 유지됩니다.");
   });
 });

@@ -15,23 +15,54 @@ afterEach(() => {
 });
 
 describe("UploadForm UI", () => {
-  test("shows public map, manage page, and token actions after successful upload", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-      ok: true,
-      slug: "sample-map",
-      admin_token: "admin-token-123",
-      inserted: 2,
-      failed: 1,
-      geocoder_stats: { kakao: 2 },
-      failure_preview: [
-        {
-          row_index: 4,
-          address_raw: "없는 주소 123",
-          reason: "ALL_FAILED",
-          attempted: ["kakao", "vworld"],
-        },
-      ],
-    }))));
+  test("shows progress and then public map, manage page, and token actions after successful upload job", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        job_id: "job-1",
+        status: "pending",
+        slug: "sample-map",
+        admin_token: "admin-token-123",
+        total: 3,
+        processed: 0,
+        inserted: 0,
+        failed: 0,
+        geocoder_stats: {},
+        failure_preview: [],
+      })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        job_id: "job-1",
+        status: "processing",
+        slug: "sample-map",
+        total: 3,
+        processed: 2,
+        inserted: 2,
+        failed: 0,
+        geocoder_stats: { kakao: 2 },
+        failure_preview: [],
+      })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        job_id: "job-1",
+        status: "completed",
+        slug: "sample-map",
+        total: 3,
+        processed: 3,
+        inserted: 2,
+        failed: 1,
+        geocoder_stats: { kakao: 2 },
+        failure_preview: [
+          {
+            row_index: 4,
+            address_raw: "없는 주소 123",
+            reason: "ALL_FAILED",
+            attempted: ["kakao", "vworld"],
+          },
+        ],
+      })));
+    vi.stubGlobal("fetch", fetchMock);
 
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -61,6 +92,9 @@ describe("UploadForm UI", () => {
       form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
 
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/upload/jobs", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/upload/jobs/job-1/process", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/upload/jobs/job-1/process", expect.objectContaining({ method: "POST" }));
     expect(document.body.textContent).toContain("지도가 생성되었습니다");
     expect(document.body.textContent).toContain("/m/sample-map");
     expect(document.body.textContent).toContain("/manage/sample-map");
@@ -79,11 +113,16 @@ describe("UploadForm UI", () => {
   test("resets required inputs when starting a new map after success", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       ok: true,
+      job_id: "job-1",
+      status: "completed",
       slug: "sample-map",
       admin_token: "admin-token-123",
+      total: 2,
+      processed: 2,
       inserted: 2,
       failed: 0,
       geocoder_stats: { kakao: 2 },
+      failure_preview: [],
     }))));
 
     const container = document.createElement("div");

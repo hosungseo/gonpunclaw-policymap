@@ -38,3 +38,22 @@ export interface GeocodeCacheRow {
   provider: string;
   cached_at: string;
 }
+
+export interface UploadJobRow {
+  id: string;
+  map_id: string;
+  slug: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  total_rows: number;
+  processed_rows: number;
+  inserted_count: number;
+  failed_count: number;
+  geocoder_stats: Record<string, number>;
+  failure_preview: Array<{ row_index: number; address_raw: string; reason: string; attempted: string[] }>;
+  rows: unknown[];
+  error_message: string | null;
+  source_file: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+}

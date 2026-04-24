@@ -1,6 +1,7 @@
 // src/lib/rate-limit.ts
 type Bucket = { count: number; resetAt: number };
 const store = new Map<string, Bucket>();
+const MAX_BUCKETS = 10_000;
 
 export interface RateLimit {
   limit: number;
@@ -9,6 +10,11 @@ export interface RateLimit {
 
 export function rateLimit(key: string, cfg: RateLimit): { allowed: boolean; retryAfterMs: number } {
   const now = Date.now();
+  if (store.size > MAX_BUCKETS) {
+    for (const [bucketKey, bucket] of store) {
+      if (bucket.resetAt <= now) store.delete(bucketKey);
+    }
+  }
   const existing = store.get(key);
   if (!existing || existing.resetAt <= now) {
     store.set(key, { count: 1, resetAt: now + cfg.windowMs });
@@ -22,12 +28,17 @@ export function rateLimit(key: string, cfg: RateLimit): { allowed: boolean; retr
 }
 
 export function ipKey(req: Request, prefix: string): string {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip =
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    req.headers.get("x-real-ip")?.trim() ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
   return `${prefix}:${ip}`;
 }
 
 export const LIMITS = {
   upload: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3/hour
   adminAttempt: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5/10min
+  deleteMap: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5/10min
   report: { limit: 5, windowMs: 60 * 60 * 1000 }, // 5/hour
 } as const;
