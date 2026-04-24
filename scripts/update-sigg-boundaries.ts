@@ -19,6 +19,8 @@ interface VWorldResponse {
   response?: {
     status?: string;
     error?: { code?: string; text?: string };
+    record?: { total?: string | number; current?: string | number };
+    page?: { total?: string | number; current?: string | number; size?: string | number };
     result?: {
       featureCollection?: {
         type: "FeatureCollection";
@@ -61,6 +63,16 @@ const DATASETS: BoundaryDataset[] = [
     defaultTolerance: 0.002,
     toleranceEnv: "SIGG_SIMPLIFY_TOLERANCE",
     properties: ["sig_cd", "full_nm", "sig_kor_nm"],
+  },
+  {
+    data: "LT_C_ADEMD_INFO",
+    outputFile: "emd-boundaries.geojson",
+    name: "vworld-lt-c-ademd-info",
+    source: "VWorld 2D Data API 2.0 LT_C_ADEMD_INFO",
+    columns: "emd_cd,full_nm,emd_kor_nm",
+    defaultTolerance: 0.003,
+    toleranceEnv: "EMD_SIMPLIFY_TOLERANCE",
+    properties: ["emd_cd", "full_nm", "emd_kor_nm"],
   },
 ];
 
@@ -153,8 +165,12 @@ function pickProperties(feature: VWorldFeature, keys: string[]) {
   return properties;
 }
 
-async function fetchDataset(dataset: BoundaryDataset, apiKey: string, domain: string | undefined) {
-  const tolerance = Number(process.env[dataset.toleranceEnv] ?? dataset.defaultTolerance);
+function readPositiveInteger(value: string | number | undefined, fallback: number) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue > 0 ? Math.ceil(numberValue) : fallback;
+}
+
+async function fetchDatasetPage(dataset: BoundaryDataset, apiKey: string, domain: string | undefined, page: number) {
   const params = new URLSearchParams({
     service: "data",
     request: "GetFeature",
@@ -162,7 +178,7 @@ async function fetchDataset(dataset: BoundaryDataset, apiKey: string, domain: st
     data: dataset.data,
     format: "json",
     size: "1000",
-    page: "1",
+    page: String(page),
     geomFilter: `BOX(${process.env.BOUNDARY_BBOX ?? DEFAULT_BBOX})`,
     columns: dataset.columns,
     geometry: "true",
@@ -181,7 +197,29 @@ async function fetchDataset(dataset: BoundaryDataset, apiKey: string, domain: st
     throw new Error(`${dataset.data} error: ${error?.code ?? payload.response?.status} ${error?.text ?? ""}`.trim());
   }
 
-  const features = payload.response.result?.featureCollection?.features ?? [];
+  return payload;
+}
+
+async function fetchDataset(dataset: BoundaryDataset, apiKey: string, domain: string | undefined) {
+  const tolerance = Number(process.env[dataset.toleranceEnv] ?? dataset.defaultTolerance);
+  let page = 1;
+  let totalPages = 1;
+  const features: VWorldFeature[] = [];
+
+  do {
+    const payload = await fetchDatasetPage(dataset, apiKey, domain, page);
+    const pageFeatures = payload.response?.result?.featureCollection?.features ?? [];
+    features.push(...pageFeatures);
+
+    const responsePage = payload.response?.page;
+    const responseRecord = payload.response?.record;
+    const currentPage = readPositiveInteger(responsePage?.current, page);
+    const pageSize = readPositiveInteger(responsePage?.size, 1000);
+    const recordTotal = readPositiveInteger(responseRecord?.total, pageFeatures.length);
+    totalPages = readPositiveInteger(responsePage?.total, Math.max(currentPage, Math.ceil(recordTotal / pageSize)));
+    page = currentPage + 1;
+  } while (page <= totalPages);
+
   const output = {
     type: "FeatureCollection",
     name: dataset.name,

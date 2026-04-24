@@ -76,7 +76,11 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
   const searchResults = useMemo(() => filteredMarkers.slice(0, 8), [filteredMarkers]);
   const hasActiveFilters = Boolean(searchQuery.trim() || selectedCategories || valueRange);
-  const boundaryLevelLabel = boundaryLevel === "sido" ? "광역시도" : "시군구";
+  const boundaryLevelLabel = {
+    sido: "광역시도",
+    sigg: "시군구",
+    emd: "읍면동",
+  }[boundaryLevel];
   const boundaryMessage = useMemo(() => {
     if (!showBoundaries || boundaryStatus === "idle") {
       return "VWorld 경계도를 기준으로 현재 위치 주변의 행정구역 경계를 함께 봅니다.";
@@ -257,10 +261,11 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                 className="h-4 w-4 accent-blue-700"
               />
             </label>
-            <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
               {([
                 ["sido", "광역시도"],
                 ["sigg", "시군구"],
+                ["emd", "읍면동"],
               ] as const).map(([level, label]) => (
                 <button
                   key={level}

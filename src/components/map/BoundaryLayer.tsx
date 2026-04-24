@@ -13,7 +13,7 @@ interface BoundaryLayerProps {
   onStatusChange?: (status: BoundaryLayerStatus) => void;
 }
 
-export type BoundaryLevel = "sido" | "sigg";
+export type BoundaryLevel = "sido" | "sigg" | "emd";
 export type BoundaryLayerStatus = "idle" | "loading" | "ready" | "empty" | "unavailable";
 
 type BoundaryApiResponse =

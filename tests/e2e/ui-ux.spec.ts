@@ -268,6 +268,17 @@ test.describe("public UI polish", () => {
         }),
       });
     });
+    await page.route("**/data/emd-boundaries.geojson", async (route) => {
+      requestedPaths.push(new URL(route.request().url()).pathname);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "FeatureCollection",
+          features: [],
+        }),
+      });
+    });
 
     await page.goto("/demo");
     await page.getByLabel("행정구역 경계 표시").check();
@@ -275,6 +286,9 @@ test.describe("public UI polish", () => {
 
     await page.getByRole("button", { name: "시군구" }).click();
     await expect.poll(() => requestedPaths).toContain("/data/sigg-boundaries.geojson");
+
+    await page.getByRole("button", { name: "읍면동" }).click();
+    await expect.poll(() => requestedPaths).toContain("/data/emd-boundaries.geojson");
     await expectNoHorizontalOverflow(page);
   });
 
