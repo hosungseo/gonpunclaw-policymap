@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page) {
@@ -83,6 +84,37 @@ test.describe("public UI polish", () => {
     await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "public/template.xlsx"));
     await expect(page.getByText("template.xlsx")).toBeVisible();
     await expect(submit).toBeEnabled();
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test("upload form accepts spreadsheet files by drag and drop", async ({ page }) => {
+    await page.goto("/upload");
+
+    const filePath = path.join(process.cwd(), "tests/fixtures/excel/valid_small.xlsx");
+    const fileBuffer = readFileSync(filePath);
+    const dataTransfer = await page.evaluateHandle(
+      async ({ name, mimeType, buffer }) => {
+        const data = new Uint8Array(buffer);
+        const file = new File([data], name, { type: mimeType });
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        return transfer;
+      },
+      {
+        name: "valid_small.xlsx",
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: Array.from(fileBuffer),
+      },
+    );
+
+    await page.getByTestId("file-drop-zone").dispatchEvent("dragenter", { dataTransfer });
+    await expect(page.getByText("여기에 놓으면 파일이 선택됩니다.")).toBeVisible();
+    await page.getByTestId("file-drop-zone").dispatchEvent("drop", { dataTransfer });
+
+    await expect(page.getByText("valid_small.xlsx")).toBeVisible();
+    await expect(page.getByText("미리보기")).toBeVisible();
+    await expect(page.getByText("2개 위치")).toBeVisible();
+    await expect(page.getByRole("button", { name: "지도 생성" })).toBeDisabled();
     await expectNoHorizontalOverflow(page);
   });
 

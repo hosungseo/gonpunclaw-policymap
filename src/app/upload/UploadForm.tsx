@@ -84,8 +84,10 @@ type FilePreview =
 export function UploadForm() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [title, setTitle] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [filePreview, setFilePreview] = useState<FilePreview>({ kind: "idle" });
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +101,7 @@ export function UploadForm() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    if (selectedFile) fd.set("file", selectedFile);
     setStatus({ kind: "uploading" });
     let res: Response;
     try {
@@ -190,12 +193,14 @@ export function UploadForm() {
   }
 
   function clearSelectedFile() {
+    setSelectedFile(null);
     setSelectedFileName("");
     setFilePreview({ kind: "idle" });
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleFileChange(file: File | undefined) {
+    setSelectedFile(file ?? null);
     setSelectedFileName(file?.name ?? "");
     if (!file) {
       setFilePreview({ kind: "idle" });
@@ -219,6 +224,33 @@ export function UploadForm() {
     } catch {
       setFilePreview({ kind: "error", message: "파일 미리보기를 만들 수 없습니다." });
     }
+  }
+
+  function hasDraggedFiles(e: React.DragEvent<HTMLElement>) {
+    return Array.from(e.dataTransfer.types).includes("Files");
+  }
+
+  function onFileDrag(e: React.DragEvent<HTMLLabelElement>) {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+    setIsDraggingFile(true);
+  }
+
+  function onFileDragLeave(e: React.DragEvent<HTMLLabelElement>) {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+  }
+
+  function onFileDrop(e: React.DragEvent<HTMLLabelElement>) {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+    void handleFileChange(e.dataTransfer.files?.[0]);
   }
 
   if (status.kind === "processing") {
@@ -524,14 +556,26 @@ export function UploadForm() {
               엑셀 파일 <span className="text-red-600">*</span>
             </label>
             <label
+              data-testid="file-drop-zone"
               htmlFor={fileInputId}
-              className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center transition hover:border-blue-400 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:border-blue-500 dark:hover:bg-blue-950"
+              onDragEnter={onFileDrag}
+              onDragOver={onFileDrag}
+              onDragLeave={onFileDragLeave}
+              onDrop={onFileDrop}
+              className={`flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-6 text-center transition ${
+                isDraggingFile
+                  ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 dark:border-blue-400 dark:bg-blue-950 dark:ring-blue-900"
+                  : "border-zinc-300 bg-zinc-50 hover:border-blue-400 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:border-blue-500 dark:hover:bg-blue-950"
+              }`}
             >
               <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                {selectedFileName || "파일 선택"}
+                {isDraggingFile ? "여기에 놓으면 파일이 선택됩니다." : selectedFileName || "파일 선택 또는 드래그 앤 드롭"}
               </span>
               <span className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
-                최대 10,000행 / 3MB. XLSX, XLS, CSV를 지원합니다.
+                클릭해서 고르거나 엑셀 파일을 이 영역에 끌어다 놓으세요. 최대 10,000행 / 3MB.
+              </span>
+              <span className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+                XLSX, XLS, CSV를 지원합니다.
               </span>
             </label>
             <input
