@@ -22,11 +22,32 @@ export interface MarkerLayerProps {
   categoryLabel: string | null;
   filterCategories: Set<string> | null;
   valueRange: [number, number] | null;
+  focusedMarkerId?: string | null;
 }
 
 const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#64748b", "#a855f7", "#22c55e", "#3b82f6"];
 
-export function MarkerLayer({ map, markers, valueLabel, valueUnit, categoryLabel, filterCategories, valueRange }: MarkerLayerProps) {
+function buildPopupHtml(
+  properties: Record<string, string>,
+  valueLabel: string | null,
+  valueUnit: string | null,
+  categoryLabel: string | null,
+) {
+  const extraObj = JSON.parse(properties.extra || "{}") as Record<string, unknown>;
+  const extraHtml = Object.entries(extraObj).map(([k, v]) => `<div><b>${k}:</b> ${String(v)}</div>`).join("");
+  const valHtml = properties.value && properties.value !== "null"
+    ? `<div><b>${valueLabel ?? "값"}:</b> ${Number(properties.value).toLocaleString()}${valueUnit ?? ""}</div>`
+    : "";
+  const catHtml = properties.category ? `<div><b>${categoryLabel ?? "분류"}:</b> ${properties.category}</div>` : "";
+
+  return `<div class="text-sm">
+    <div class="font-semibold">${properties.name || properties.address}</div>
+    <div class="text-zinc-500">${properties.address}</div>
+    ${valHtml}${catHtml}${extraHtml}
+  </div>`;
+}
+
+export function MarkerLayer({ map, markers, valueLabel, valueUnit, categoryLabel, filterCategories, valueRange, focusedMarkerId }: MarkerLayerProps) {
   const didFitInitialBounds = useRef(false);
 
   useEffect(() => {
@@ -100,18 +121,8 @@ export function MarkerLayer({ map, markers, valueLabel, valueUnit, categoryLabel
         const f = e.features?.[0]; if (!f) return;
         const [lng, lat] = (f.geometry as GeoJSON.Point).coordinates as [number, number];
         const p = f.properties as Record<string, string>;
-        const extraObj = JSON.parse(p.extra || "{}") as Record<string, unknown>;
-        const extraHtml = Object.entries(extraObj).map(([k, v]) => `<div><b>${k}:</b> ${String(v)}</div>`).join("");
-        const valHtml = p.value && p.value !== "null"
-          ? `<div><b>${valueLabel ?? "값"}:</b> ${Number(p.value).toLocaleString()}${valueUnit ?? ""}</div>`
-          : "";
-        const catHtml = p.category ? `<div><b>${categoryLabel ?? "분류"}:</b> ${p.category}</div>` : "";
         new maplibregl.Popup().setLngLat([lng, lat]).setHTML(
-          `<div class="text-sm">
-            <div class="font-semibold">${p.name || p.address}</div>
-            <div class="text-zinc-500">${p.address}</div>
-            ${valHtml}${catHtml}${extraHtml}
-          </div>`
+          buildPopupHtml(p, valueLabel, valueUnit, categoryLabel)
         ).addTo(map);
       });
 
@@ -135,6 +146,26 @@ export function MarkerLayer({ map, markers, valueLabel, valueUnit, categoryLabel
       }
     }
   }, [map, markers, valueLabel, valueUnit, categoryLabel, filterCategories, valueRange]);
+
+  useEffect(() => {
+    if (!map || !focusedMarkerId) return;
+    const source = map.getSource("markers-src") as maplibregl.GeoJSONSource | undefined;
+    if (!source) return;
+    const marker = markers.find((item) => item.id === focusedMarkerId);
+    if (!marker) return;
+    const properties = {
+      id: marker.id,
+      name: marker.name ?? "",
+      address: marker.address_normalized ?? "",
+      value: marker.value == null ? "null" : String(marker.value),
+      category: marker.category ?? "",
+      extra: JSON.stringify(marker.extra ?? {}),
+    };
+    new maplibregl.Popup()
+      .setLngLat([marker.lng, marker.lat])
+      .setHTML(buildPopupHtml(properties, valueLabel, valueUnit, categoryLabel))
+      .addTo(map);
+  }, [map, markers, focusedMarkerId, valueLabel, valueUnit, categoryLabel]);
 
   return null;
 }
