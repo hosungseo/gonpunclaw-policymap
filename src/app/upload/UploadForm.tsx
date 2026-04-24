@@ -336,9 +336,12 @@ export function UploadForm() {
         <aside className="space-y-5">
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
             <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">파일 형식</p>
-            <p className="mt-2 text-xs leading-5 text-blue-800 dark:text-blue-200">
-              XLSX를 권장합니다. A열 주소, B열 이름, C열 값, D열 분류를 읽습니다.
-            </p>
+            <div className="mt-2 space-y-1 text-xs leading-5 text-blue-800 dark:text-blue-200">
+              <p>한 행은 지도에 표시될 위치 1개입니다.</p>
+              <p>첫 번째 시트만 읽습니다.</p>
+              <p>A열 주소, B열 이름, C열 값, D열 분류를 읽습니다.</p>
+              <p>E열 이후는 공개 지도 팝업에 추가 정보로 표시됩니다.</p>
+            </div>
           </div>
 
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
@@ -435,7 +438,7 @@ function FilePreviewPanel({ preview }: { preview: FilePreview }) {
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold">미리보기</p>
         <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-          {preview.totalRows.toLocaleString()}개 주소
+          {preview.totalRows.toLocaleString()}개 위치
         </span>
       </div>
       {preview.skipped.length > 0 && (

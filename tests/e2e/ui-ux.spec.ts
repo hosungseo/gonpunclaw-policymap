@@ -29,6 +29,9 @@ test.describe("public UI polish", () => {
     await page.goto("/upload");
 
     const submit = page.getByRole("button", { name: "지도 생성" });
+    await expect(page.getByText("한 행은 지도에 표시될 위치 1개입니다.")).toBeVisible();
+    await expect(page.getByText("첫 번째 시트만 읽습니다.")).toBeVisible();
+    await expect(page.getByText("E열 이후는 공개 지도 팝업에 추가 정보로 표시됩니다.")).toBeVisible();
     await expect(page.getByText("업로드한 내용은 공개 지도에 그대로 표시됩니다.")).toBeVisible();
     await expect(page.getByText("개인정보나 민감정보가 들어 있는 열은 올리기 전에 제거하세요.")).toBeVisible();
     await expect(submit).toBeDisabled();
@@ -36,7 +39,7 @@ test.describe("public UI polish", () => {
     await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "tests/fixtures/excel/valid_small.xlsx"));
     await expect(page.getByText("valid_small.xlsx")).toBeVisible();
     await expect(page.getByText("미리보기")).toBeVisible();
-    await expect(page.getByText("2개 주소")).toBeVisible();
+    await expect(page.getByText("2개 위치")).toBeVisible();
     await expect(page.getByText("서초복지관")).toBeVisible();
     await expect(page.getByText("해운대센터")).toBeVisible();
     await expect(submit).toBeDisabled();
