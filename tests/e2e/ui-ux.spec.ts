@@ -35,6 +35,8 @@ test.describe("public UI polish", () => {
     await expect(page.getByRole("heading", { name: "엑셀 작성 예시" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "A열 주소" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "C열 대표값" })).toBeVisible();
+    const exampleBox = await page.getByTestId("excel-example-card").boundingBox();
+    expect(exampleBox?.width).toBeGreaterThan(560);
     await expect(page.getByText("이 행은 지도에서 예시복지관 위치 1개로 표시됩니다.")).toBeVisible();
     await expect(page.getByText("업로드한 내용은 공개 지도에 그대로 표시됩니다.")).toBeVisible();
     await expect(page.getByText("개인정보나 민감정보가 들어 있는 열은 올리기 전에 제거하세요.")).toBeVisible();
