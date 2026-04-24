@@ -38,6 +38,10 @@ yarn-error.log*
 # OMC harness state
 .omc/
 .superpowers/
+docs/superpowers/
+docs/DEPLOY-CHECKLIST.md
+docs/PRODUCTION-ENV.md
+docs/VERCEL-ENV-QUICK.md
 
 # vercel
 .vercel
