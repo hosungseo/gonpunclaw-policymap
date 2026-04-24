@@ -9,6 +9,8 @@ export interface MapViewProps {
   onReady?: (map: MLMap) => void;
 }
 
+const DEFAULT_CENTER: [number, number] = [127.77, 36.2];
+
 const OSM_STYLE = {
   version: 8,
   sources: {
@@ -17,7 +19,7 @@ const OSM_STYLE = {
   layers: [{ id: "osm", type: "raster", source: "osm" }],
 } as const;
 
-export function MapView({ center = [127.77, 36.2], zoom = 6, onReady }: MapViewProps) {
+export function MapView({ center = DEFAULT_CENTER, zoom = 6, onReady }: MapViewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
 
@@ -33,7 +35,7 @@ export function MapView({ center = [127.77, 36.2], zoom = 6, onReady }: MapViewP
     map.on("load", () => onReady?.(map));
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
-  }, [center, zoom, onReady]);
+  }, [center[0], center[1], zoom, onReady]);
 
   return <div ref={ref} className="w-full h-full" />;
 }
