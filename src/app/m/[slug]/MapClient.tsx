@@ -142,6 +142,13 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
       <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[340px_1fr]">
         <aside className="order-2 overflow-y-auto border-t border-zinc-200 bg-zinc-50 p-4 text-sm md:order-1 md:border-r md:border-t-0 dark:border-zinc-800 dark:bg-zinc-950">
+          <section className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
+            <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-100">지도 사용법</h2>
+            <p className="mt-2 text-xs leading-5 text-blue-800 dark:text-blue-200">
+              검색으로 기관명이나 주소를 찾고, 분류와 값 범위로 좁힌 뒤 표로 확인할 수 있습니다.
+            </p>
+          </section>
+
           <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold">검색</h3>

@@ -20,7 +20,7 @@ export default function UploadPage() {
               <h1 className="mt-2 text-3xl font-semibold tracking-tight">엑셀 업로드로 지도 만들기</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">
                 엑셀의 한 행을 지도에 표시될 위치 1개로 변환합니다. 첫 번째 시트의 A~D열을
-                주소, 이름, 값, 분류로 읽고, 업로드 후 공개 지도 링크와 관리 링크를 발급합니다.
+                주소, 이름, 대표값, 분류로 읽고, 업로드 후 공개 지도 링크와 관리 링크를 발급합니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-sm">

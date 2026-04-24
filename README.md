@@ -58,8 +58,10 @@ GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 자동
 
 ## 빠른 시작
 
-1. [`템플릿`](./docs/sample-upload-template.xlsx)을 내려받습니다.
-2. A열 주소, B열 이름, C열 값, D열 분류를 채웁니다.
+1. 템플릿을 내려받습니다.
+   - 앱에서 바로 받기: [`/template.xlsx`](https://gonpunclaw-policymap.vercel.app/template.xlsx)
+   - 저장소 파일: [`docs/sample-upload-template.xlsx`](./docs/sample-upload-template.xlsx)
+2. A열 주소, B열 이름, C열 대표값, D열 분류를 채웁니다.
 3. [`/upload`](https://gonpunclaw-policymap.vercel.app/upload)에 업로드합니다.
 4. 발급된 공개 지도 링크를 공유하고, 관리 토큰은 따로 보관합니다.
 

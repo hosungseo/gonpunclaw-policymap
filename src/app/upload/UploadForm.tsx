@@ -171,18 +171,36 @@ export function UploadForm() {
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <ResultLink
             title="공개 지도"
-            description="공유받은 사용자가 지도와 표를 볼 수 있습니다."
+            description="공개 지도 링크는 외부에 공유해도 됩니다."
             href={url}
             copied={copiedField === "public"}
             onCopy={() => handleCopy("public", `${window.location.origin}${url}`)}
           />
           <ResultLink
             title="관리 페이지"
-            description="관리 토큰으로 제목, 설명, 공개 여부를 수정합니다."
+            description="관리 페이지와 관리 토큰은 내부에만 보관하세요."
             href={manageUrl}
             copied={copiedField === "manage"}
             onCopy={() => handleCopy("manage", `${window.location.origin}${manageUrl}`)}
           />
+        </div>
+
+        <div className="mt-5 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950">
+          <p className="text-sm font-semibold">다음 단계</p>
+          <ol className="mt-3 grid gap-2 text-sm text-zinc-700 sm:grid-cols-3 dark:text-zinc-300">
+            <li className="rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+              <span className="font-semibold text-zinc-950 dark:text-zinc-100">1. 공개 지도 확인</span>
+              <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">지도와 표에 데이터가 맞게 보이는지 확인합니다.</p>
+            </li>
+            <li className="rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+              <span className="font-semibold text-zinc-950 dark:text-zinc-100">2. 공개 링크 공유</span>
+              <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">외부 사용자에게는 공개 지도 링크만 전달합니다.</p>
+            </li>
+            <li className="rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+              <span className="font-semibold text-zinc-950 dark:text-zinc-100">3. 관리 토큰 저장</span>
+              <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">수정과 삭제에 필요하므로 내부 보관함에 저장합니다.</p>
+            </li>
+          </ol>
         </div>
 
         <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
@@ -190,7 +208,7 @@ export function UploadForm() {
             <div>
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">관리 토큰</p>
               <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
-                이 토큰은 한 번만 표시됩니다. 잃어버리면 지도를 수정하거나 삭제할 수 없습니다.
+                이 토큰은 한 번만 표시됩니다. 관리 페이지와 함께 내부에만 보관하세요. 잃어버리면 지도를 수정하거나 삭제할 수 없습니다.
               </p>
             </div>
             <button
@@ -339,7 +357,7 @@ export function UploadForm() {
             <div className="mt-2 space-y-1 text-xs leading-5 text-blue-800 dark:text-blue-200">
               <p>한 행은 지도에 표시될 위치 1개입니다.</p>
               <p>첫 번째 시트만 읽습니다.</p>
-              <p>A열 주소, B열 이름, C열 값, D열 분류를 읽습니다.</p>
+              <p>A열 주소, B열 이름, C열 대표값, D열 분류를 읽습니다.</p>
               <p>E열 이후는 공개 지도 팝업에 추가 정보로 표시됩니다.</p>
             </div>
           </div>

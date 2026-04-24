@@ -65,6 +65,12 @@ describe("UploadForm UI", () => {
     expect(document.body.textContent).toContain("/m/sample-map");
     expect(document.body.textContent).toContain("/manage/sample-map");
     expect(document.body.textContent).toContain("토큰 복사");
+    expect(document.body.textContent).toContain("다음 단계");
+    expect(document.body.textContent).toContain("1. 공개 지도 확인");
+    expect(document.body.textContent).toContain("2. 공개 링크 공유");
+    expect(document.body.textContent).toContain("3. 관리 토큰 저장");
+    expect(document.body.textContent).toContain("공개 지도 링크는 외부에 공유해도 됩니다.");
+    expect(document.body.textContent).toContain("관리 페이지와 관리 토큰은 내부에만 보관하세요.");
     expect(document.body.textContent).toContain("변환 실패 주소");
     expect(document.body.textContent).toContain("4행");
     expect(document.body.textContent).toContain("없는 주소 123");

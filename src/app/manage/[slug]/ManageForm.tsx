@@ -61,6 +61,9 @@ export function ManageForm({ slug, initial }: { slug: string; initial: ManagedMa
         <p className="text-xs text-zinc-600 dark:text-zinc-400">
           수정과 삭제 모두 같은 관리 토큰을 사용합니다.
         </p>
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          관리 토큰은 지도 소유자만 보관하세요. 외부에는 공개 지도 링크만 공유하면 됩니다.
+        </p>
       </div>
 
       <EditSection slug={slug} initial={initial} token={token} />
@@ -218,6 +221,9 @@ function EditSection({ slug, initial, token }: { slug: string; initial: ManagedM
         />
         <span className="text-zinc-800 dark:text-zinc-200">공개 (체크 해제 시 공개 지도 접근이 차단됩니다)</span>
       </label>
+      <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+        비공개로 전환하면 공개 링크 접속만 막고 데이터는 보관됩니다. 다시 공개로 바꾸면 같은 링크를 사용할 수 있습니다.
+      </p>
 
       {status.kind === "error" && (
         <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
@@ -307,6 +313,9 @@ function DeleteSection({ slug, title, token }: { slug: string; title: string; to
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">지도 삭제</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           <span className="font-medium text-zinc-900 dark:text-zinc-100">{title}</span> 지도를 삭제합니다. 삭제 후 복구할 수 없습니다.
+        </p>
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+          영구 삭제는 공개 링크, 마커 데이터, 관리 페이지를 복구할 수 없게 제거합니다. 삭제 대신 임시로 숨기려면 공개 체크를 해제하세요.
         </p>
       </div>
 

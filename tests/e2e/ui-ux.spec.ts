@@ -91,6 +91,7 @@ test.describe("public UI polish", () => {
     await expect(page).toHaveURL(/\/demo$/);
     await expect(page.getByRole("heading", { name: "샘플 정책지도" })).toBeVisible();
     await expect(page.getByText("샘플 데이터")).toBeVisible();
+    await expect(page.getByText("검색으로 기관명이나 주소를 찾고, 분류와 값 범위로 좁힌 뒤 표로 확인할 수 있습니다.")).toBeVisible();
 
     await page.getByRole("button", { name: "표" }).click();
     await expect(page.getByRole("cell", { name: "서초복지관" })).toBeVisible();
