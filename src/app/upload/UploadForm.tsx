@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 
 type UploadResponse =
@@ -29,6 +29,8 @@ type Status =
 
 export function UploadForm() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [selectedFileName, setSelectedFileName] = useState<string>("");
+  const fileInputId = useId();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -186,17 +188,29 @@ export function UploadForm() {
         </div>
       </div>
 
-      <div className="space-y-1">
-        <label className="block text-sm font-medium" htmlFor="file">
+      <div className="space-y-2">
+        <label className="block text-sm font-medium" htmlFor={fileInputId}>
           엑셀 파일 <span className="text-red-600">*</span>
         </label>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label
+            htmlFor={fileInputId}
+            className="inline-flex cursor-pointer items-center justify-center rounded border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+          >
+            파일 선택
+          </label>
+          <span className="text-sm text-zinc-600 dark:text-zinc-400">
+            {selectedFileName || "선택된 파일 없음"}
+          </span>
+        </div>
         <input
-          id="file"
+          id={fileInputId}
           name="file"
           type="file"
           accept=".xlsx,.xls,.csv"
           required
-          className="block w-full text-sm"
+          onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? "")}
+          className="sr-only"
         />
         <p className="text-xs text-zinc-600 dark:text-zinc-400">
           A열 주소, B열 이름, C열 값, D열 분류, E열 이후 임의. 최대 10,000행 / 3MB.
