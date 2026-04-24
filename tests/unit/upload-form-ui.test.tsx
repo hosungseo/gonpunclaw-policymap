@@ -23,6 +23,14 @@ describe("UploadForm UI", () => {
       inserted: 2,
       failed: 1,
       geocoder_stats: { kakao: 2 },
+      failure_preview: [
+        {
+          row_index: 4,
+          address_raw: "없는 주소 123",
+          reason: "ALL_FAILED",
+          attempted: ["kakao", "vworld"],
+        },
+      ],
     }))));
 
     const container = document.createElement("div");
@@ -57,6 +65,9 @@ describe("UploadForm UI", () => {
     expect(document.body.textContent).toContain("/m/sample-map");
     expect(document.body.textContent).toContain("/manage/sample-map");
     expect(document.body.textContent).toContain("토큰 복사");
+    expect(document.body.textContent).toContain("변환 실패 주소");
+    expect(document.body.textContent).toContain("4행");
+    expect(document.body.textContent).toContain("없는 주소 123");
   });
 
   test("resets required inputs when starting a new map after success", async () => {

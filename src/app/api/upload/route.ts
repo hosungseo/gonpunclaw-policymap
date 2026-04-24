@@ -20,6 +20,7 @@ interface UploadOk {
   inserted: number;
   failed: number;
   geocoder_stats: Record<string, number>;
+  failure_preview: Array<{ row_index: number; address_raw: string; reason: string; attempted: string[] }>;
 }
 interface UploadErr {
   ok: false;
@@ -231,5 +232,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadOk | Up
     inserted: successes.length,
     failed: failures.length,
     geocoder_stats: stats,
+    failure_preview: failures.slice(0, 10),
   });
 }

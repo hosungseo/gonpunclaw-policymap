@@ -22,8 +22,16 @@ type UploadResponse =
       inserted: number;
       failed: number;
       geocoder_stats: Record<string, number>;
+      failure_preview?: FailurePreviewItem[];
     }
   | { ok: false; error: { code: string; message: string } };
+
+type FailurePreviewItem = {
+  row_index: number;
+  address_raw: string;
+  reason: string;
+  attempted: string[];
+};
 
 type Status =
   | { kind: "idle" }
@@ -36,6 +44,7 @@ type Status =
       inserted: number;
       failed: number;
       stats: Record<string, number>;
+      failurePreview: FailurePreviewItem[];
     };
 
 type FilePreview =
@@ -94,6 +103,7 @@ export function UploadForm() {
       inserted: json.inserted,
       failed: json.failed,
       stats: json.geocoder_stats,
+      failurePreview: json.failure_preview ?? [],
     });
   }
 
@@ -207,6 +217,29 @@ export function UploadForm() {
                 >
                   {name}: {count.toLocaleString()}
                 </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {status.failurePreview.length > 0 && (
+          <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
+            <p className="text-sm font-semibold text-red-900 dark:text-red-100">변환 실패 주소</p>
+            <p className="mt-1 text-xs leading-5 text-red-800 dark:text-red-200">
+              아래 주소는 지도에 표시되지 않았습니다. 원본 파일에서 행 번호와 주소를 확인해 다시 업로드하세요.
+            </p>
+            <div className="mt-3 space-y-2">
+              {status.failurePreview.map((item) => (
+                <div
+                  key={`${item.row_index}-${item.address_raw}`}
+                  className="rounded-md border border-red-200 bg-white px-3 py-2 text-xs dark:border-red-900 dark:bg-red-900/30"
+                >
+                  <p className="font-semibold text-red-950 dark:text-red-100">{item.row_index}행</p>
+                  <p className="mt-1 break-words text-red-900 dark:text-red-100">{item.address_raw}</p>
+                  <p className="mt-1 text-red-700 dark:text-red-200">
+                    {item.reason} · {item.attempted.join(", ") || "시도한 지오코더 없음"}
+                  </p>
+                </div>
               ))}
             </div>
           </div>
