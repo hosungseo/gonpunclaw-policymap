@@ -58,4 +58,53 @@ describe("UploadForm UI", () => {
     expect(document.body.textContent).toContain("/manage/sample-map");
     expect(document.body.textContent).toContain("토큰 복사");
   });
+
+  test("resets required inputs when starting a new map after success", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      ok: true,
+      slug: "sample-map",
+      admin_token: "admin-token-123",
+      inserted: 2,
+      failed: 0,
+      geocoder_stats: { kakao: 2 },
+    }))));
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => {
+      root?.render(<UploadForm />);
+    });
+
+    const title = document.querySelector<HTMLInputElement>("#title");
+    const file = document.querySelector<HTMLInputElement>("input[type=file]");
+    const form = document.querySelector("form");
+
+    act(() => {
+      title!.value = "테스트 지도";
+      title!.dispatchEvent(new Event("input", { bubbles: true }));
+      Object.defineProperty(file!, "files", {
+        configurable: true,
+        value: [new File(["x"], "sample.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })],
+      });
+      file!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await act(async () => {
+      form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+
+    const newMapButton = Array.from(document.querySelectorAll("button")).find((button) => button.textContent === "새 지도 만들기");
+    expect(newMapButton).toBeDefined();
+
+    act(() => {
+      newMapButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const resetTitle = document.querySelector<HTMLInputElement>("#title");
+    const submit = Array.from(document.querySelectorAll("button")).find((button) => button.textContent === "지도 생성");
+    expect(resetTitle?.value).toBe("");
+    expect(document.body.textContent).not.toContain("sample.xlsx");
+    expect(submit?.hasAttribute("disabled")).toBe(true);
+  });
 });

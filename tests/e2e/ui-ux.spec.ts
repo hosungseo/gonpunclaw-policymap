@@ -30,9 +30,18 @@ test.describe("public UI polish", () => {
     const submit = page.getByRole("button", { name: "지도 생성" });
     await expect(submit).toBeDisabled();
 
-    await page.getByLabel(/지도 제목/).fill("테스트 정책 지도");
     await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "public/template.xlsx"));
+    await expect(page.getByText("template.xlsx")).toBeVisible();
+    await expect(submit).toBeDisabled();
 
+    await page.getByLabel(/지도 제목/).fill("테스트 정책 지도");
+
+    await expect(submit).toBeEnabled();
+    await page.getByRole("button", { name: "파일 선택 해제" }).click();
+    await expect(page.getByText("template.xlsx")).toBeHidden();
+    await expect(submit).toBeDisabled();
+
+    await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "public/template.xlsx"));
     await expect(page.getByText("template.xlsx")).toBeVisible();
     await expect(submit).toBeEnabled();
     await expectNoHorizontalOverflow(page);

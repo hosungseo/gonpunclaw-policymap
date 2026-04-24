@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import Link from "next/link";
 
 async function copyText(text: string) {
@@ -39,9 +39,11 @@ type Status =
 
 export function UploadForm() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [title, setTitle] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const fileInputId = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleCopy(key: string, text: string) {
     const ok = await copyText(text);
@@ -81,6 +83,11 @@ export function UploadForm() {
     });
   }
 
+  function clearSelectedFile() {
+    setSelectedFileName("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   if (status.kind === "success") {
     const url = `/m/${status.slug}`;
     const manageUrl = `/manage/${status.slug}`;
@@ -98,7 +105,11 @@ export function UploadForm() {
           </div>
           <button
             type="button"
-            onClick={() => setStatus({ kind: "idle" })}
+            onClick={() => {
+              setStatus({ kind: "idle" });
+              setTitle("");
+              setSelectedFileName("");
+            }}
             className="inline-flex min-h-10 items-center justify-center rounded-lg border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
           >
             새 지도 만들기
@@ -163,7 +174,7 @@ export function UploadForm() {
   }
 
   const disabled = status.kind === "uploading";
-  const canSubmit = !disabled && Boolean(selectedFileName);
+  const canSubmit = !disabled && Boolean(title.trim()) && Boolean(selectedFileName);
 
   return (
     <form
@@ -188,6 +199,8 @@ export function UploadForm() {
                 id="title"
                 name="title"
                 type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 required
                 maxLength={120}
                 placeholder="예: 2026 서울 청년정책 거점"
@@ -238,8 +251,10 @@ export function UploadForm() {
           >
             {disabled ? "주소를 좌표로 변환하는 중..." : "지도 생성"}
           </button>
-          {!selectedFileName && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">엑셀 파일을 선택하면 지도를 생성할 수 있습니다.</p>
+          {!canSubmit && !disabled && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              지도 제목과 엑셀 파일을 모두 입력하면 지도를 생성할 수 있습니다.
+            </p>
           )}
         </div>
 
@@ -267,6 +282,7 @@ export function UploadForm() {
               </span>
             </label>
             <input
+              ref={fileInputRef}
               id={fileInputId}
               name="file"
               type="file"
@@ -275,6 +291,15 @@ export function UploadForm() {
               onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? "")}
               className="sr-only"
             />
+            {selectedFileName && (
+              <button
+                type="button"
+                onClick={clearSelectedFile}
+                className="text-xs font-medium text-zinc-600 underline hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100"
+              >
+                파일 선택 해제
+              </button>
+            )}
             <p className="text-xs text-zinc-600 dark:text-zinc-400">
               템플릿은 <a href="/template.xlsx" className="font-medium underline">여기</a>서 받을 수 있습니다.
             </p>
