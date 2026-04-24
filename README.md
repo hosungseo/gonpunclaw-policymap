@@ -130,9 +130,10 @@ npm run build
 로컬 실행에는 `.env.example`을 참고해 `.env.local`을 구성해야 합니다. 실제 운영 환경값이나
 비밀키는 공개 저장소에 기록하지 않습니다.
 
-운영 배포에서는 `CRON_SECRET`을 설정합니다. `vercel.json`의 Cron이
-`/api/cron/process-upload-jobs`를 주기적으로 호출해 브라우저가 닫힌 업로드 작업을 이어 처리하고,
-완료된 작업 원본 행은 일정 기간 뒤 정리합니다.
+운영 배포에서는 `CRON_SECRET`을 설정합니다. `vercel.json`의 일일 Cron이
+`/api/cron/process-upload-jobs`를 호출해 브라우저가 닫힌 업로드 작업을 이어 처리하고,
+완료된 작업 원본 행은 일정 기간 뒤 정리합니다. 더 잦은 자동 재개가 필요하면 Vercel Pro 이상의
+Cron 주기로 조정합니다.
 
 ## 테스트 범위
 
