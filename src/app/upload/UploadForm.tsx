@@ -84,197 +84,269 @@ export function UploadForm() {
   if (status.kind === "success") {
     const url = `/m/${status.slug}`;
     const manageUrl = `/manage/${status.slug}`;
+    const hasStats = Object.keys(status.stats).length > 0;
+
     return (
-      <div className="space-y-6 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-        <div>
-          <h2 className="text-xl font-semibold">지도가 생성되었습니다</h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            {status.inserted.toLocaleString()}개 마커 등록, {status.failed.toLocaleString()}개 실패
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium">공개 지도 주소</p>
-            <button
-              type="button"
-              onClick={() => handleCopy("public", `${window.location.origin}${url}`)}
-              className="text-xs text-blue-700 underline"
-            >
-              {copiedField === "public" ? "복사됨" : "복사"}
-            </button>
+      <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">생성 완료</p>
+            <h2 className="mt-2 text-2xl font-semibold">지도가 생성되었습니다</h2>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              {status.inserted.toLocaleString()}개 마커 등록, {status.failed.toLocaleString()}개 주소 변환 실패
+            </p>
           </div>
-          <Link href={url} className="block break-all rounded border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm text-blue-700 underline dark:border-zinc-800 dark:bg-zinc-900">
-            {url}
-          </Link>
+          <button
+            type="button"
+            onClick={() => setStatus({ kind: "idle" })}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            새 지도 만들기
+          </button>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium">관리 페이지</p>
-            <button
-              type="button"
-              onClick={() => handleCopy("manage", `${window.location.origin}${manageUrl}`)}
-              className="text-xs text-blue-700 underline"
-            >
-              {copiedField === "manage" ? "복사됨" : "복사"}
-            </button>
-          </div>
-          <Link href={manageUrl} className="block break-all rounded border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm text-blue-700 underline dark:border-zinc-800 dark:bg-zinc-900">
-            {manageUrl}
-          </Link>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-            위 페이지에서 관리 토큰을 입력하면 지도를 삭제할 수 있습니다.
-          </p>
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <ResultLink
+            title="공개 지도"
+            description="공유받은 사용자가 지도와 표를 볼 수 있습니다."
+            href={url}
+            copied={copiedField === "public"}
+            onCopy={() => handleCopy("public", `${window.location.origin}${url}`)}
+          />
+          <ResultLink
+            title="관리 페이지"
+            description="관리 토큰으로 제목, 설명, 공개 여부를 수정합니다."
+            href={manageUrl}
+            copied={copiedField === "manage"}
+            onCopy={() => handleCopy("manage", `${window.location.origin}${manageUrl}`)}
+          />
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">관리 토큰 (한 번만 표시됩니다)</p>
+        <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+            <div>
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">관리 토큰</p>
+              <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
+                이 토큰은 한 번만 표시됩니다. 잃어버리면 지도를 수정하거나 삭제할 수 없습니다.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => handleCopy("token", status.adminToken)}
-              className="text-xs text-amber-700 underline dark:text-amber-300"
+              className="inline-flex min-h-9 items-center justify-center rounded-md bg-amber-900 px-3 text-xs font-semibold text-white hover:bg-amber-800 dark:bg-amber-200 dark:text-amber-950"
             >
-              {copiedField === "token" ? "복사됨" : "복사"}
+              {copiedField === "token" ? "복사됨" : "토큰 복사"}
             </button>
           </div>
-          <code className="block break-all rounded border border-amber-300 bg-amber-50 px-3 py-2 font-mono text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          <code className="mt-3 block break-all rounded-md border border-amber-200 bg-white px-3 py-2 font-mono text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-900 dark:text-amber-100">
             {status.adminToken}
           </code>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-            이 토큰을 잃어버리면 지도를 수정하거나 삭제할 수 없습니다. 안전한 곳에 보관해 주세요.
-          </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setStatus({ kind: "idle" })}
-          className="text-sm text-blue-700 underline"
-        >
-          새 지도 만들기
-        </button>
-      </div>
+        {hasStats && (
+          <div className="mt-5 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-semibold">지오코딩 처리</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {Object.entries(status.stats).map(([name, count]) => (
+                <span
+                  key={name}
+                  className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+                >
+                  {name}: {count.toLocaleString()}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
     );
   }
 
   const disabled = status.kind === "uploading";
+  const canSubmit = !disabled && Boolean(selectedFileName);
 
   return (
     <form
       onSubmit={onSubmit}
-      className="space-y-6 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950"
+      className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
     >
-      <div className="space-y-1">
-        <label className="block text-sm font-medium" htmlFor="title">
-          지도 제목 <span className="text-red-600">*</span>
-        </label>
-        <input
-          id="title"
-          name="title"
-          type="text"
-          required
-          maxLength={120}
-          placeholder="예: 2026 서울 청년정책 거점"
-          className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        />
-      </div>
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-7">
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-base font-semibold">지도 기본 정보</h2>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                공개 지도 상단에 표시될 제목과 설명입니다.
+              </p>
+            </div>
 
-      <div className="space-y-1">
-        <label className="block text-sm font-medium" htmlFor="description">
-          설명
-        </label>
-        <textarea
-          id="description"
-          name="description"
-          rows={2}
-          maxLength={500}
-          className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        />
-      </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium" htmlFor="title">
+                지도 제목 <span className="text-red-600">*</span>
+              </label>
+              <input
+                id="title"
+                name="title"
+                type="text"
+                required
+                maxLength={120}
+                placeholder="예: 2026 서울 청년정책 거점"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="space-y-1">
-          <label className="block text-sm font-medium" htmlFor="value_label">
-            C열 값의 이름
-          </label>
-          <input
-            id="value_label"
-            name="value_label"
-            type="text"
-            placeholder="예: 예산"
-            className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="block text-sm font-medium" htmlFor="value_unit">
-            단위
-          </label>
-          <input
-            id="value_unit"
-            name="value_unit"
-            type="text"
-            placeholder="예: 원"
-            className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="block text-sm font-medium" htmlFor="category_label">
-            D열 분류의 이름
-          </label>
-          <input
-            id="category_label"
-            name="category_label"
-            type="text"
-            placeholder="예: 대상"
-            className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
-      </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium" htmlFor="description">
+                설명
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                rows={3}
+                maxLength={500}
+                placeholder="지도에 담긴 데이터의 기준일, 대상, 출처를 적어 주세요."
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </div>
+          </section>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium" htmlFor={fileInputId}>
-          엑셀 파일 <span className="text-red-600">*</span>
-        </label>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label
-            htmlFor={fileInputId}
-            className="inline-flex cursor-pointer items-center justify-center rounded border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+          <section className="space-y-4 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+            <div>
+              <h2 className="text-base font-semibold">엑셀 컬럼 표시 이름</h2>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                공개 지도 필터와 팝업에 표시될 이름입니다. 비워 두면 기본값을 사용합니다.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <LabelInput id="value_label" name="value_label" label="C열 값" placeholder="예: 예산" />
+              <LabelInput id="value_unit" name="value_unit" label="단위" placeholder="예: 원" />
+              <LabelInput id="category_label" name="category_label" label="D열 분류" placeholder="예: 대상" />
+            </div>
+          </section>
+
+          {status.kind === "error" && (
+            <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+              {status.message}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
           >
-            파일 선택
-          </label>
-          <span className="text-sm text-zinc-600 dark:text-zinc-400">
-            {selectedFileName || "선택된 파일 없음"}
-          </span>
+            {disabled ? "주소를 좌표로 변환하는 중..." : "지도 생성"}
+          </button>
+          {!selectedFileName && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">엑셀 파일을 선택하면 지도를 생성할 수 있습니다.</p>
+          )}
         </div>
-        <input
-          id={fileInputId}
-          name="file"
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          required
-          onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? "")}
-          className="sr-only"
-        />
-        <p className="text-xs text-zinc-600 dark:text-zinc-400">
-          A열 주소, B열 이름, C열 값, D열 분류, E열 이후 임의. 최대 10,000행 / 3MB.
-          템플릿은 <a href="/template.xlsx" className="underline">여기</a>서 받을 수 있습니다.
-        </p>
+
+        <aside className="space-y-5">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">파일 형식</p>
+            <p className="mt-2 text-xs leading-5 text-blue-800 dark:text-blue-200">
+              XLSX를 권장합니다. A열 주소, B열 이름, C열 값, D열 분류를 읽습니다.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium" htmlFor={fileInputId}>
+              엑셀 파일 <span className="text-red-600">*</span>
+            </label>
+            <label
+              htmlFor={fileInputId}
+              className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center transition hover:border-blue-400 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:border-blue-500 dark:hover:bg-blue-950"
+            >
+              <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {selectedFileName || "파일 선택"}
+              </span>
+              <span className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
+                최대 10,000행 / 3MB. XLSX, XLS, CSV를 지원합니다.
+              </span>
+            </label>
+            <input
+              id={fileInputId}
+              name="file"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              required
+              onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? "")}
+              className="sr-only"
+            />
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              템플릿은 <a href="/template.xlsx" className="font-medium underline">여기</a>서 받을 수 있습니다.
+            </p>
+          </div>
+
+          {disabled && (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                <div className="h-full w-2/3 rounded-full bg-blue-700" />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
+                주소 수와 외부 지오코더 응답에 따라 잠시 걸릴 수 있습니다. 창을 닫지 마세요.
+              </p>
+            </div>
+          )}
+        </aside>
       </div>
-
-      {status.kind === "error" && (
-        <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-          {status.message}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={disabled}
-        className="inline-flex items-center justify-center rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
-      >
-        {disabled ? "지오코딩 중..." : "지도 생성"}
-      </button>
     </form>
+  );
+}
+
+function LabelInput({ id, name, label, placeholder }: { id: string; name: string; label: string; placeholder: string }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type="text"
+        placeholder={placeholder}
+        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+      />
+    </div>
+  );
+}
+
+function ResultLink({
+  title,
+  description,
+  href,
+  copied,
+  onCopy,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-400">{description}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="inline-flex min-h-8 shrink-0 items-center rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        >
+          {copied ? "복사됨" : "복사"}
+        </button>
+      </div>
+      <Link
+        href={href}
+        className="mt-3 block break-all rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-blue-700 underline dark:border-zinc-800 dark:bg-zinc-900 dark:text-blue-300"
+      >
+        {href}
+      </Link>
+    </div>
   );
 }

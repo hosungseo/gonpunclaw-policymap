@@ -1,73 +1,66 @@
 import Link from "next/link";
 
-const STEPS = [
+const CAPABILITIES = [
   {
-    number: "1",
-    title: "엑셀 업로드",
-    body: "주소가 있는 시트를 올리면 A열 주소, B열 이름, C열 값, D열 분류를 기준으로 자동 파싱합니다.",
+    label: "주소 자동 좌표화",
+    value: "3단계",
+    body: "카카오, VWorld, Juso 순서로 좌표를 찾고 실패 행은 따로 집계합니다.",
   },
   {
-    number: "2",
-    title: "자동 지오코딩",
-    body: "카카오, VWorld, Juso를 순서대로 시도해 좌표를 찾고, 실패 행은 제외한 뒤 지도를 만듭니다.",
+    label: "공개 지도",
+    value: "즉시",
+    body: "업로드가 끝나면 공유 링크와 관리 링크가 바로 발급됩니다.",
   },
   {
-    number: "3",
-    title: "공개 링크 발급",
-    body: "공개 지도 링크와 관리 링크를 즉시 발급해 공유하거나 수정, 삭제까지 직접 처리할 수 있습니다.",
+    label: "탐색 도구",
+    value: "검색·필터·표",
+    body: "분류와 값 범위로 걸러 보고, 표에서 위치를 다시 지도에 띄울 수 있습니다.",
   },
 ];
 
-const EXAMPLES = [
+const WORKFLOW = [
   {
-    title: "복지시설 분포 지도",
-    body: "시설명, 주소, 시설유형, 정원을 올리면 분포와 규모를 한 화면에서 볼 수 있습니다.",
+    title: "템플릿에 주소 입력",
+    body: "A열 주소, B열 이름, C열 값, D열 분류만 맞추면 나머지는 자유롭게 둘 수 있습니다.",
   },
   {
-    title: "정책 거점기관 지도",
-    body: "사업 거점, 협력기관, 운영기관을 분류별로 나눠 공개 지도 링크로 바로 공유할 수 있습니다.",
+    title: "엑셀 업로드",
+    body: "제목과 설명을 입력하고 파일을 올리면 서버에서 지오코딩을 순차 처리합니다.",
   },
   {
-    title: "지원 대상 위치 현황",
-    body: "현장 점검용 주소 목록을 업로드해 지역별 편중과 누락 지점을 빠르게 확인할 수 있습니다.",
+    title: "링크 공유",
+    body: "공개 지도는 바로 공유하고, 관리 토큰으로 제목·설명·공개 여부를 수정합니다.",
   },
 ];
+
+const USE_CASES = ["복지시설 분포", "정책 거점기관", "현장 점검 대상", "지원 대상 위치", "공공서비스 권역"];
 
 export default function Home() {
   return (
-    <div className="bg-zinc-50 dark:bg-zinc-950">
-      <main className="mx-auto w-full max-w-5xl px-6 py-16">
-        <section className="grid gap-8 rounded-2xl border border-zinc-200 bg-white p-10 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 lg:grid-cols-[1.4fr_0.9fr]">
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-blue-700 dark:text-blue-400">
-                GonpunClaw PolicyMap
-              </p>
-              <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-4xl">
-                엑셀로 만드는 정책 지도
-              </h1>
-              <p className="text-base leading-relaxed text-zinc-600 dark:text-zinc-300">
-                주소가 들어 있는 엑셀 파일을 올리기만 하면, 자동으로 좌표를 찾아 공개 지도를 만들어
-                드립니다. 정책 사업장, 지원시설, 거점 데이터를 빠르게 시각화하고 공유하세요.
-              </p>
-            </div>
+    <main className="min-h-dvh bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
+      <section className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:py-16">
+          <div className="flex flex-col justify-center">
+            <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">GonpunClaw PolicyMap</p>
+            <h1 className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-zinc-950 dark:text-white sm:text-5xl">
+              엑셀 주소 목록을 바로 공유 가능한 정책 지도로
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 dark:text-zinc-300">
+              사업장, 지원시설, 거점기관처럼 주소가 있는 데이터를 업로드하면 좌표 변환부터 공개
+              링크 발급까지 한 번에 처리합니다. 별도 GIS 도구 없이 정책 현황을 지도와 표로 함께
+              확인할 수 있습니다.
+            </p>
 
-            <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
-              <li>· 카카오 / VWorld / Juso 지오코더를 순서대로 시도하는 폴백 체인</li>
-              <li>· 분류·값 범위 필터, 군집(클러스터링), 팝업 자동 생성</li>
-              <li>· 한 번 발급되는 관리 토큰으로 본인만 수정·삭제</li>
-            </ul>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
                 href="/upload"
-                className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
               >
                 지도 만들기
               </Link>
               <a
                 href="/template.xlsx"
-                className="inline-flex items-center justify-center rounded-md border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
               >
                 엑셀 템플릿 받기
               </a>
@@ -75,50 +68,100 @@ export default function Home() {
                 href="https://github.com/hosungseo/gonpunclaw-policymap/blob/main/docs/USER-GUIDE-KO.md"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-md border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
               >
                 사용법 보기
               </a>
             </div>
 
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              업로드된 데이터는 익명으로 게시되며, 발급되는 관리 토큰으로 직접 수정하거나 삭제할 수 있습니다.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-950">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">이럴 때 잘 맞습니다</h2>
-            <div className="mt-4 space-y-4">
-              {EXAMPLES.map((example) => (
-                <div key={example.title} className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{example.title}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{example.body}</p>
-                </div>
+            <div className="mt-8 flex flex-wrap gap-2">
+              {USE_CASES.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+                >
+                  {item}
+                </span>
               ))}
             </div>
           </div>
-        </section>
 
-        <section className="mt-10 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">3단계로 끝나는 지도 발행</h2>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              처음 쓰는 사용자도 업로드부터 공개 링크 발급까지 바로 따라갈 수 있게 구성했습니다.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {STEPS.map((step) => (
-              <div key={step.number} className="rounded-xl border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-950">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-700 text-sm font-semibold text-white">
-                  {step.number}
-                </div>
-                <h3 className="mt-4 text-base font-semibold text-zinc-900 dark:text-zinc-50">{step.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{step.body}</p>
+          <div className="min-h-[360px] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+              <div>
+                <p className="text-sm font-semibold">정책 거점 지도</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">검색 결과 128곳</p>
               </div>
-            ))}
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                공개 중
+              </span>
+            </div>
+            <div className="grid h-[310px] grid-cols-[150px_1fr] sm:grid-cols-[190px_1fr]">
+              <div className="border-r border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />
+                <div className="mt-5 space-y-2">
+                  <div className="h-4 w-20 rounded bg-zinc-900 dark:bg-zinc-200" />
+                  <div className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />
+                  <div className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />
+                  <div className="h-8 rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />
+                </div>
+                <div className="mt-6 h-9 rounded-lg bg-blue-700" />
+              </div>
+              <div className="relative bg-[linear-gradient(135deg,#dbeafe_0%,#f8fafc_45%,#dcfce7_100%)] dark:bg-[linear-gradient(135deg,#172554_0%,#18181b_50%,#064e3b_100%)]">
+                <div className="absolute left-[18%] top-[32%] h-8 w-8 rounded-full border-4 border-white bg-blue-600 shadow-lg" />
+                <div className="absolute left-[48%] top-[44%] h-10 w-10 rounded-full border-4 border-white bg-red-600 shadow-lg" />
+                <div className="absolute right-[20%] top-[24%] h-7 w-7 rounded-full border-4 border-white bg-emerald-600 shadow-lg" />
+                <div className="absolute bottom-5 right-5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+                  지도 · 표 전환 가능
+                </div>
+              </div>
+            </div>
           </div>
-        </section>
-      </main>
-    </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+        <div className="grid gap-4 md:grid-cols-3">
+          {CAPABILITIES.map((item) => (
+            <article
+              key={item.label}
+              className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
+            >
+              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{item.label}</p>
+              <p className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-white">{item.value}</p>
+              <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mx-auto w-full max-w-6xl px-6 py-10">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">발행 흐름</h2>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                처음 쓰는 사용자도 템플릿 작성, 업로드, 링크 공유 순서로 바로 따라갈 수 있습니다.
+              </p>
+            </div>
+            <Link href="/upload" className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400">
+              업로드로 이동
+            </Link>
+          </div>
+
+          <ol className="mt-8 grid gap-4 md:grid-cols-3">
+            {WORKFLOW.map((step, index) => (
+              <li key={step.title} className="border-l-2 border-zinc-200 pl-5 dark:border-zinc-800">
+                <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
+                  STEP {index + 1}
+                </span>
+                <h3 className="mt-2 text-base font-semibold text-zinc-950 dark:text-white">{step.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    </main>
   );
 }

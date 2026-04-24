@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/test-results
 
 # next.js
 /.next/
@@ -36,6 +37,7 @@ yarn-error.log*
 
 # OMC harness state
 .omc/
+.superpowers/
 
 # vercel
 .vercel

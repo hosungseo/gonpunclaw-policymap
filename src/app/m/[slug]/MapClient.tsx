@@ -8,6 +8,7 @@ import { MarkerLayer, type MarkerData } from "@/components/map/MarkerLayer";
 import { Filters } from "@/components/map/Filters";
 import { Legend } from "@/components/map/Legend";
 import { ReportForm } from "@/components/map/ReportForm";
+import { filterMarkersForDisplay } from "@/components/map/filterMarkers";
 
 async function copyText(text: string) {
   if (typeof navigator === "undefined" || !navigator.clipboard) return false;
@@ -64,20 +65,17 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
   }, [markers]);
 
   const filteredMarkers = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return markers.filter((m) => {
-      if (selectedCategories && m.category && !selectedCategories.has(m.category)) return false;
-      if (valueRange && m.value != null && (m.value < valueRange[0] || m.value > valueRange[1])) return false;
-      if (!q) return true;
-      const haystack = [m.name, m.address_normalized, m.category]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
+    return filterMarkersForDisplay(markers, { selectedCategories, valueRange, searchQuery });
   }, [markers, searchQuery, selectedCategories, valueRange]);
 
   const searchResults = useMemo(() => filteredMarkers.slice(0, 8), [filteredMarkers]);
+  const hasActiveFilters = Boolean(searchQuery.trim() || selectedCategories || valueRange);
+
+  function handleResetFilters() {
+    setSearchQuery("");
+    setSelectedCategories(null);
+    setValueRange(null);
+  }
 
   function handleResetView() {
     if (!map || filteredMarkers.length === 0) return;
@@ -93,30 +91,35 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
   }
 
   return (
-    <div className="flex h-dvh flex-col">
-      <header className="flex items-center gap-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <Link href="/" className="text-sm text-zinc-600 underline dark:text-zinc-400">
+    <div className="flex h-dvh flex-col bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
+      <header className="flex min-h-[72px] items-center gap-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+        <Link href="/" className="shrink-0 text-sm font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100">
           ← 처음
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-base font-semibold">{title}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-base font-semibold">{title}</h1>
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+              {filteredMarkers.length.toLocaleString()} / {markers.length.toLocaleString()}곳
+            </span>
+          </div>
           {description && (
-            <p className="truncate text-xs text-zinc-600 dark:text-zinc-400">{description}</p>
+            <p className="mt-1 truncate text-xs text-zinc-600 dark:text-zinc-400">{description}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <div className="hidden rounded-md border border-zinc-300 p-0.5 text-xs sm:flex dark:border-zinc-700">
+          <div className="hidden rounded-lg border border-zinc-300 bg-zinc-50 p-0.5 text-xs sm:flex dark:border-zinc-700 dark:bg-zinc-900">
             <button
               type="button"
               onClick={() => setViewMode("map")}
-              className={`rounded px-2 py-1 ${viewMode === "map" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 dark:text-zinc-300"}`}
+              className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "map" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
             >
               지도
             </button>
             <button
               type="button"
               onClick={() => setViewMode("table")}
-              className={`rounded px-2 py-1 ${viewMode === "table" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 dark:text-zinc-300"}`}
+              className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "table" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
             >
               표
             </button>
@@ -124,28 +127,36 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           <button
             type="button"
             onClick={handleCopy}
-            className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            className="inline-flex min-h-9 items-center rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
           >
             {copied ? "링크 복사됨" : "링크 복사"}
           </button>
-          <span className="rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-            {filteredMarkers.length.toLocaleString()}곳
-          </span>
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[320px_1fr]">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[340px_1fr]">
         <aside className="order-2 overflow-y-auto border-t border-zinc-200 bg-zinc-50 p-4 text-sm md:order-1 md:border-r md:border-t-0 dark:border-zinc-800 dark:bg-zinc-950">
-          <section>
-            <h3 className="text-sm font-medium">검색</h3>
+          <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold">검색</h3>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="text-xs font-medium text-blue-700 hover:underline dark:text-blue-400"
+                >
+                  조건 초기화
+                </button>
+              )}
+            </div>
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="기관명, 주소, 분류 검색"
-              className="mt-2 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="mt-3 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
             />
-            <p className="mt-2 text-xs text-zinc-500">검색 결과 {filteredMarkers.length.toLocaleString()}건</p>
+            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">조건에 맞는 위치 {filteredMarkers.length.toLocaleString()}곳</p>
             {searchQuery.trim() && (
               <div className="mt-3 space-y-2">
                 {searchResults.length > 0 ? (
@@ -154,14 +165,14 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                       key={marker.id}
                       type="button"
                       onClick={() => handleFocusMarker(marker)}
-                      className="block w-full rounded border border-zinc-200 bg-white px-3 py-2 text-left hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                      className="block w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-blue-800 dark:hover:bg-blue-950"
                     >
                       <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{marker.name ?? marker.address_normalized ?? "이름 없음"}</div>
-                      <div className="mt-1 text-xs text-zinc-500">{marker.address_normalized ?? "주소 없음"}</div>
+                      <div className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{marker.address_normalized ?? "주소 없음"}</div>
                     </button>
                   ))
                 ) : (
-                  <p className="rounded border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+                  <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
                     검색 결과가 없습니다.
                   </p>
                 )}
@@ -169,7 +180,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
             )}
           </section>
 
-          <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <Filters
               categories={categoryBuckets}
               valueRange={baseValueRange}
@@ -181,40 +192,60 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
               setCurrentValueRange={setValueRange}
               total={filteredMarkers.length}
             />
-            <button
-              type="button"
-              onClick={handleResetView}
-              className="mt-4 text-sm text-blue-700 underline"
-            >
-              전체 보기
-            </button>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleResetView}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-3 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
+                disabled={filteredMarkers.length === 0}
+              >
+                지도 맞춤
+              </button>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              >
+                초기화
+              </button>
+            </div>
           </div>
 
-          <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-            <h3 className="text-sm font-medium">범례</h3>
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <h3 className="text-sm font-semibold">범례</h3>
             <div className="mt-2">
               <Legend categories={categoryBuckets.map((c) => c.name)} valueLabel={valueLabel} />
             </div>
           </div>
-          <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <ReportForm slug={slug} />
           </div>
         </aside>
 
-        <main className="order-1 relative md:order-2">
-          <div className="flex border-b border-zinc-200 bg-white px-4 py-2 text-xs sm:hidden dark:border-zinc-800 dark:bg-zinc-950">
+        <main className="order-1 relative bg-white md:order-2 dark:bg-zinc-950">
+          <div className="flex flex-col gap-2 border-b border-zinc-200 bg-white px-4 py-3 text-xs sm:hidden dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                {filteredMarkers.length.toLocaleString()}곳 표시 중
+              </span>
+              {hasActiveFilters && (
+                <button type="button" onClick={handleResetFilters} className="font-medium text-blue-700 dark:text-blue-400">
+                  초기화
+                </button>
+              )}
+            </div>
             <div className="grid w-full grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setViewMode("map")}
-                className={`rounded px-3 py-2 ${viewMode === "map" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "border border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"}`}
+                className={`min-h-10 rounded-lg px-3 py-2 font-semibold ${viewMode === "map" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "border border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"}`}
               >
                 지도
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`rounded px-3 py-2 ${viewMode === "table" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "border border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"}`}
+                className={`min-h-10 rounded-lg px-3 py-2 font-semibold ${viewMode === "table" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "border border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"}`}
               >
                 표
               </button>
@@ -237,6 +268,23 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
             </>
           ) : (
             <div className="h-full overflow-auto bg-white p-4 dark:bg-zinc-950">
+              <div className="mb-3 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                <div>
+                  <h2 className="text-base font-semibold">데이터 표</h2>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    행을 선택하면 해당 위치를 지도에서 확인할 수 있습니다.
+                  </p>
+                </div>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    조건 초기화
+                  </button>
+                )}
+              </div>
               <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
                 <table className="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
                   <thead className="bg-zinc-50 dark:bg-zinc-900">
@@ -250,7 +298,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                   </thead>
                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                     {filteredMarkers.map((marker) => (
-                      <tr key={marker.id} className="bg-white dark:bg-zinc-950">
+                      <tr key={marker.id} className="bg-white transition hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-900">
                         <td className="px-4 py-3 text-zinc-900 dark:text-zinc-100">{marker.name ?? "-"}</td>
                         <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{marker.address_normalized ?? "-"}</td>
                         {valueLabel && (
@@ -260,7 +308,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                         )}
                         {categoryLabel && <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{marker.category ?? "-"}</td>}
                         <td className="px-4 py-3">
-                          <button type="button" onClick={() => handleFocusMarker(marker)} className="text-blue-700 underline">
+                          <button type="button" onClick={() => handleFocusMarker(marker)} className="font-medium text-blue-700 hover:underline dark:text-blue-400">
                             지도에서 보기
                           </button>
                         </td>
@@ -269,7 +317,16 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                   </tbody>
                 </table>
                 {filteredMarkers.length === 0 && (
-                  <div className="px-4 py-6 text-sm text-zinc-500">조건에 맞는 데이터가 없습니다.</div>
+                  <div className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    <p className="font-medium text-zinc-700 dark:text-zinc-200">조건에 맞는 데이터가 없습니다.</p>
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      조건 초기화
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
