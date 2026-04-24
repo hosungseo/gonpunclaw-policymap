@@ -9,7 +9,7 @@ export const metadata = {
 export default function UploadPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
-      <header className="mb-8 space-y-2">
+      <header className="mb-8 space-y-3">
         <Link href="/" className="text-sm text-zinc-600 underline dark:text-zinc-400">
           ← 처음으로
         </Link>
@@ -17,6 +17,14 @@ export default function UploadPage() {
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           엑셀 파일을 올리면 주소를 자동으로 지오코딩하고 공개 지도를 만들어 드립니다.
         </p>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link href="/template.xlsx" className="text-zinc-700 underline dark:text-zinc-300">
+            템플릿 다운로드
+          </Link>
+          <Link href="https://github.com/hosungseo/gonpunclaw-policymap/blob/main/docs/USER-GUIDE-KO.md" className="text-zinc-700 underline dark:text-zinc-300" target="_blank" rel="noreferrer">
+            사용법 보기
+          </Link>
+        </div>
       </header>
       <UploadForm />
     </div>

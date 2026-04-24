@@ -75,6 +75,9 @@ supabase db push
 - `docs/DEPLOY-CHECKLIST.md` — 실서버 배포 전 확인 항목
 - `docs/PRODUCTION-ENV.md` — production 환경변수 실제 입력 가이드
 - `docs/VERCEL-ENV-QUICK.md` — Vercel 입력창용 초압축 env 표
+- `docs/USER-GUIDE-KO.md` — 최종 사용자용 한국어 사용 안내
+- `docs/sample-upload-template.xlsx` — 업로드 테스트용 샘플 엑셀
+- `docs/sample-upload-template.csv` — 참고용 샘플 CSV
 
 ## 실배포 검증 메모
 
