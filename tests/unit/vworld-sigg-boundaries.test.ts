@@ -90,4 +90,23 @@ describe("VWorld 시군구 경계 API", () => {
     if (parsed.ok) return;
     expect(parsed.code).toBe("INVALID_KEY");
   });
+
+  it("retries over HTTP when the HTTPS upstream returns a gateway error", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("bad gateway", { status: 502 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(okResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }));
+
+    const result = await fetchVWorldSiggBoundaries({
+      apiKey: "KEY",
+      bbox: [126.9, 37.4, 127.2, 37.7],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(String(fetchSpy.mock.calls[0][0])).toMatch(/^https:\/\/api\.vworld\.kr/);
+    expect(String(fetchSpy.mock.calls[1][0])).toMatch(/^http:\/\/api\.vworld\.kr/);
+  });
 });

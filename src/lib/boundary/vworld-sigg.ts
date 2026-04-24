@@ -73,6 +73,12 @@ export function buildVWorldSiggBoundaryUrl({ apiKey, bbox, domain }: BuildBounda
   return url;
 }
 
+function buildHttpFallbackUrl(url: URL) {
+  const fallback = new URL(url.toString());
+  fallback.protocol = "http:";
+  return fallback;
+}
+
 export function parseVWorldSiggBoundaryResponse(payload: unknown): SiggBoundaryResult {
   const response = readRecord(payload, "response");
   const status = readString(response, "status");
@@ -114,21 +120,28 @@ export async function fetchVWorldSiggBoundaries({
   }
 
   const url = buildVWorldSiggBoundaryUrl({ apiKey, bbox, domain });
-  let res: Response;
-  try {
-    res = await fetch(url, { signal });
-  } catch (error) {
-    return {
-      ok: false,
-      code: "NETWORK",
-      message: error instanceof Error ? error.message : "VWorld 시군구 경계 API 요청에 실패했습니다.",
-    };
+  const urls = [url, buildHttpFallbackUrl(url)];
+  let lastNetworkMessage = "VWorld 시군구 경계 API 요청에 실패했습니다.";
+
+  for (let i = 0; i < urls.length; i++) {
+    let res: Response;
+    try {
+      res = await fetch(urls[i], { signal });
+    } catch (error) {
+      lastNetworkMessage = error instanceof Error ? error.message : lastNetworkMessage;
+      continue;
+    }
+
+    if (!res.ok) {
+      if (i === urls.length - 1 || res.status < 500) {
+        return { ok: false, code: `HTTP_${res.status}`, message: "VWorld 시군구 경계 API 응답이 올바르지 않습니다." };
+      }
+      continue;
+    }
+
+    const payload = await res.json().catch(() => null);
+    return parseVWorldSiggBoundaryResponse(payload);
   }
 
-  if (!res.ok) {
-    return { ok: false, code: `HTTP_${res.status}`, message: "VWorld 시군구 경계 API 응답이 올바르지 않습니다." };
-  }
-
-  const payload = await res.json().catch(() => null);
-  return parseVWorldSiggBoundaryResponse(payload);
+  return { ok: false, code: "NETWORK", message: lastNetworkMessage };
 }
