@@ -29,6 +29,8 @@ test.describe("public UI polish", () => {
     await page.goto("/upload");
 
     const submit = page.getByRole("button", { name: "지도 생성" });
+    await expect(page.getByText("업로드한 내용은 공개 지도에 그대로 표시됩니다.")).toBeVisible();
+    await expect(page.getByText("개인정보나 민감정보가 들어 있는 열은 올리기 전에 제거하세요.")).toBeVisible();
     await expect(submit).toBeDisabled();
 
     await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "tests/fixtures/excel/valid_small.xlsx"));

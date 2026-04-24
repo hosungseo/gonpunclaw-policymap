@@ -301,6 +301,16 @@ export function UploadForm() {
             </p>
           </div>
 
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">공개 전 확인</p>
+            <p className="mt-2 text-xs leading-5 text-amber-800 dark:text-amber-200">
+              업로드한 내용은 공개 지도에 그대로 표시됩니다.
+            </p>
+            <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
+              개인정보나 민감정보가 들어 있는 열은 올리기 전에 제거하세요.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <label className="block text-sm font-medium" htmlFor={fileInputId}>
               엑셀 파일 <span className="text-red-600">*</span>
