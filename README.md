@@ -39,6 +39,12 @@ GonpunClaw PolicyMap은 주소가 들어 있는 시트를 업로드하면 자동
 정책 지도를 만들어 주는 웹 앱입니다. 사용자는 별도 GIS 도구 없이 주소 목록을 지도와 표로 함께
 확인할 수 있습니다.
 
+## 화면 미리보기
+
+![GonpunClaw PolicyMap 랜딩 화면](./docs/assets/landing.png)
+
+![샘플 정책지도 표 화면](./docs/assets/demo-map.png)
+
 ## 한눈에 보기
 
 | 작업 | 지원 내용 |
