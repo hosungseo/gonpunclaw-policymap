@@ -15,7 +15,7 @@ interface BoundaryLayerProps {
 export type BoundaryLayerStatus = "idle" | "loading" | "ready" | "empty" | "unavailable";
 
 type BoundaryApiResponse =
-  | { ok: true; feature_collection: SiggBoundaryFeatureCollection }
+  SiggBoundaryFeatureCollection
   | { ok: false; disabled?: boolean; error: { code: string; message: string } };
 
 const SOURCE_ID = "sigg-boundaries-src";
@@ -56,6 +56,10 @@ function removeBoundaryLayers(map: MLMap) {
   } catch {
     // MapLibre can clear its style before React cleanup runs during view switches.
   }
+}
+
+function isBoundaryFeatureCollection(value: BoundaryApiResponse): value is SiggBoundaryFeatureCollection {
+  return "type" in value && value.type === "FeatureCollection" && "features" in value;
 }
 
 function upsertBoundaryLayers(map: MLMap, featureCollection: SiggBoundaryFeatureCollection) {
@@ -109,20 +113,19 @@ export function BoundaryLayer({ map, markers, enabled, onStatusChange }: Boundar
     }
 
     const controller = new AbortController();
-    const params = new URLSearchParams({ bbox: bbox.join(",") });
     onStatusChange?.("loading");
 
-    fetch(`/api/boundaries/sigg?${params.toString()}`, { signal: controller.signal })
+    fetch("/data/sigg-boundaries.geojson", { signal: controller.signal })
       .then((res) => res.json() as Promise<BoundaryApiResponse>)
       .then((json) => {
         if (controller.signal.aborted) return;
-        if (!json.ok) {
+        if (!isBoundaryFeatureCollection(json)) {
           removeBoundaryLayers(map);
           onStatusChange?.("unavailable");
           return;
         }
-        upsertBoundaryLayers(map, json.feature_collection);
-        onStatusChange?.(json.feature_collection.features.length > 0 ? "ready" : "empty");
+        upsertBoundaryLayers(map, json);
+        onStatusChange?.(json.features.length > 0 ? "ready" : "empty");
       })
       .catch((error) => {
         if ((error as Error).name !== "AbortError") {

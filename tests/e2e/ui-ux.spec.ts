@@ -244,39 +244,33 @@ test.describe("public UI polish", () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test("demo map can request VWorld sigungu boundaries", async ({ page }) => {
-    await page.route("**/api/boundaries/sigg?**", async (route) => {
+  test("demo map can request sigungu boundary data", async ({ page }) => {
+    await page.route("**/data/sigg-boundaries.geojson", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          ok: true,
-          source: "vworld",
-          count: 0,
-          feature_collection: { type: "FeatureCollection", features: [] },
+          type: "FeatureCollection",
+          features: [],
         }),
       });
     });
 
     await page.goto("/demo");
-    const requestPromise = page.waitForRequest("**/api/boundaries/sigg?**");
+    const requestPromise = page.waitForRequest("**/data/sigg-boundaries.geojson");
     await page.getByLabel("시군구 경계 표시").check();
 
     const request = await requestPromise;
-    expect(new URL(request.url()).searchParams.get("bbox")).toBeTruthy();
+    expect(new URL(request.url()).pathname).toBe("/data/sigg-boundaries.geojson");
     await expectNoHorizontalOverflow(page);
   });
 
   test("demo map explains when sigungu boundaries are unavailable", async ({ page }) => {
-    await page.route("**/api/boundaries/sigg?**", async (route) => {
+    await page.route("**/data/sigg-boundaries.geojson", async (route) => {
       await route.fulfill({
-        status: 200,
+        status: 500,
         contentType: "application/json",
-        body: JSON.stringify({
-          ok: false,
-          disabled: true,
-          error: { code: "DISABLED", message: "VWorld API key is not configured." },
-        }),
+        body: JSON.stringify({ ok: false, error: { code: "STATIC_DATA_ERROR", message: "missing" } }),
       });
     });
 

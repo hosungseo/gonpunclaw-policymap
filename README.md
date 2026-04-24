@@ -141,10 +141,16 @@ npm run build
 로컬 실행에는 `.env.example`을 참고해 `.env.local`을 구성해야 합니다. 실제 운영 환경값이나
 비밀키는 공개 저장소에 기록하지 않습니다.
 
-`VWORLD_API_KEY`가 설정되어 있으면 공개 지도에서 `시군구 경계 표시`를 켤 수 있습니다.
-브라우저에는 키를 노출하지 않고 `/api/boundaries/sigg` 서버 route가 VWorld Data API 2.0
-`LT_C_ADSIGG_INFO`를 호출합니다. VWorld 인증키에 도메인 제한이 있으면 `VWORLD_DOMAIN`에
-등록한 도메인을 입력합니다.
+공개 지도에서 `시군구 경계 표시`를 켜면 `public/data/sigg-boundaries.geojson` 정적 파일을
+읽어 시군구 경계를 표시합니다. 이 파일은 VWorld Data API 2.0 `LT_C_ADSIGG_INFO`에서 받은
+경계를 지도 표시용으로 단순화한 데이터입니다.
+
+경계 데이터를 갱신할 때만 `VWORLD_API_KEY`와 필요 시 `VWORLD_DOMAIN`을 설정해 아래 명령을
+실행합니다. API 키는 `.env.local`이나 Vercel env에만 두고 커밋하지 않습니다.
+
+```bash
+npm run gen:boundaries
+```
 
 ### 로컬 Supabase 실행
 

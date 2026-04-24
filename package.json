@@ -10,7 +10,8 @@
     "test": "vitest run --pool=forks",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "gen:template": "tsx scripts/generate-template.ts"
+    "gen:template": "tsx scripts/generate-template.ts",
+    "gen:boundaries": "tsx scripts/update-sigg-boundaries.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.0",
