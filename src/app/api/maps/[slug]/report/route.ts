@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { hashIp, recordAudit } from "@/lib/audit";
 import { supabaseServer } from "@/lib/supabase/server";
-import { LIMITS, ipKey, rateLimit } from "@/lib/rate-limit";
+import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function POST(
 ): Promise<NextResponse<ReportOk | ReportErr>> {
   const { slug } = await context.params;
 
-  const limit = rateLimit(ipKey(req, "report"), LIMITS.report);
+  const limit = await rateLimitRequest(req, "report", LIMITS.report);
   if (!limit.allowed) {
     return jsonError(
       "RATE_LIMITED",

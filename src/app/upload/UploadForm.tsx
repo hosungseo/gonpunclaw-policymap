@@ -31,6 +31,7 @@ type UploadJobResponse =
   | {
       ok: true;
       job_id: string;
+      job_token?: string;
       status: "pending" | "processing" | "completed" | "failed";
       slug: string;
       admin_token?: string;
@@ -135,6 +136,7 @@ export function UploadForm() {
   async function runUploadJob(initial: Extract<UploadJobResponse, { ok: true }>) {
     let current = initial;
     const adminToken = initial.admin_token ?? "";
+    const jobToken = initial.job_token ?? "";
     while (current.status === "pending" || current.status === "processing") {
       setStatus({
         kind: "processing",
@@ -148,7 +150,10 @@ export function UploadForm() {
 
       let res: Response;
       try {
-        res = await fetch(`/api/upload/jobs/${current.job_id}/process`, { method: "POST" });
+        res = await fetch(`/api/upload/jobs/${current.job_id}/process`, {
+          method: "POST",
+          headers: jobToken ? { "x-upload-job-token": jobToken } : undefined,
+        });
       } catch {
         setStatus({ kind: "error", message: "주소 변환 중 네트워크 오류가 발생했습니다." });
         return;

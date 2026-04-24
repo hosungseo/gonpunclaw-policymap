@@ -4,8 +4,9 @@ import { parseWorkbook } from "@/lib/excel/parse";
 import { detectSensitiveHeaders, sensitiveHeadersMessage } from "@/lib/upload/sensitive";
 import { supabaseServer } from "@/lib/supabase/server";
 import { generateAdminToken, generateSlug, hashAdminToken } from "@/lib/tokens";
-import { LIMITS, ipKey, rateLimit } from "@/lib/rate-limit";
+import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
+import { generateUploadJobToken, hashUploadJobToken } from "@/lib/upload/job-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ const MAX_FILE_BYTES = 3 * 1024 * 1024;
 type UploadJobOk = {
   ok: true;
   job_id: string;
+  job_token: string;
   status: "pending" | "processing" | "completed" | "failed";
   slug: string;
   admin_token: string;
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadJobOk |
     return jsonError("SERVER_MISCONFIG", "Server pepper not configured.", 500);
   }
 
-  const limit = rateLimit(ipKey(req, "upload"), LIMITS.upload);
+  const limit = await rateLimitRequest(req, "upload", LIMITS.upload);
   if (!limit.allowed) {
     return jsonError(
       "RATE_LIMITED",
@@ -86,6 +88,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadJobOk |
   const slug = generateSlug();
   const adminToken = generateAdminToken();
   const adminHash = hashAdminToken(adminToken, pepper);
+  const jobToken = generateUploadJobToken();
+  const jobTokenHash = hashUploadJobToken(jobToken, pepper);
 
   const { data: mapRow, error: mapErr } = await sb
     .from("maps")
@@ -121,6 +125,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadJobOk |
       geocoder_stats: {},
       failure_preview: [],
       rows: parsed.rows,
+      job_token_hash: jobTokenHash,
       source_file: file.name,
     })
     .select("id, status, total_rows, processed_rows, inserted_count, failed_count, geocoder_stats, failure_preview")
@@ -141,6 +146,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadJobOk |
   return NextResponse.json<UploadJobOk>({
     ok: true,
     job_id: jobRow.id,
+    job_token: jobToken,
     status: jobRow.status,
     slug,
     admin_token: adminToken,

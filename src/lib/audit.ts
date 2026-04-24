@@ -5,6 +5,8 @@ export type AuditAction =
   | "map.create"
   | "map.update"
   | "map.replace_data"
+  | "map.export_csv"
+  | "map.retry_failures"
   | "map.delete"
   | "upload_job.create"
   | "upload_job.complete"

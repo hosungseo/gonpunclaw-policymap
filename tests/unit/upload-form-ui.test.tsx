@@ -21,6 +21,7 @@ describe("UploadForm UI", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({
         ok: true,
         job_id: "job-1",
+        job_token: "job-token-123",
         status: "pending",
         slug: "sample-map",
         admin_token: "admin-token-123",
@@ -93,8 +94,14 @@ describe("UploadForm UI", () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/upload/jobs", expect.objectContaining({ method: "POST" }));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/upload/jobs/job-1/process", expect.objectContaining({ method: "POST" }));
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/upload/jobs/job-1/process", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/upload/jobs/job-1/process", expect.objectContaining({
+      method: "POST",
+      headers: { "x-upload-job-token": "job-token-123" },
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/upload/jobs/job-1/process", expect.objectContaining({
+      method: "POST",
+      headers: { "x-upload-job-token": "job-token-123" },
+    }));
     expect(document.body.textContent).toContain("지도가 생성되었습니다");
     expect(document.body.textContent).toContain("/m/sample-map");
     expect(document.body.textContent).toContain("/manage/sample-map");
@@ -114,6 +121,7 @@ describe("UploadForm UI", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       ok: true,
       job_id: "job-1",
+      job_token: "job-token-123",
       status: "completed",
       slug: "sample-map",
       admin_token: "admin-token-123",

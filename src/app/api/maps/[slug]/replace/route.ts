@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { verifyAdminTokenForMap } from "@/lib/admin-auth";
 import { parseWorkbook } from "@/lib/excel/parse";
 import { supabaseServer } from "@/lib/supabase/server";
-import { LIMITS, ipKey, rateLimit } from "@/lib/rate-limit";
+import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
 import { geocodeParsedRows } from "@/lib/upload/geocode-rows";
 import { detectSensitiveHeaders, sensitiveHeadersMessage } from "@/lib/upload/sensitive";
@@ -34,7 +34,7 @@ export async function POST(
 ): Promise<NextResponse<ReplaceOk | ReplaceErr>> {
   const { slug } = await context.params;
 
-  const limit = rateLimit(ipKey(req, "admin-replace"), LIMITS.adminAttempt);
+  const limit = await rateLimitRequest(req, "admin-replace", LIMITS.adminAttempt);
   if (!limit.allowed) {
     return jsonError(
       "RATE_LIMITED",

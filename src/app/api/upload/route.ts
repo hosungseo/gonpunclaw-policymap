@@ -4,7 +4,7 @@ import { parseWorkbook } from "@/lib/excel/parse";
 import { defaultChainFromEnv } from "@/lib/geocode";
 import { supabaseServer } from "@/lib/supabase/server";
 import { generateAdminToken, generateSlug, hashAdminToken } from "@/lib/tokens";
-import { LIMITS, ipKey, rateLimit } from "@/lib/rate-limit";
+import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
 import { detectSensitiveHeaders, sensitiveHeadersMessage } from "@/lib/upload/sensitive";
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadOk | Up
     );
   }
 
-  const limit = rateLimit(ipKey(req, "upload"), LIMITS.upload);
+  const limit = await rateLimitRequest(req, "upload", LIMITS.upload);
   if (!limit.allowed) {
     return NextResponse.json(
       { ok: false, error: { code: "RATE_LIMITED", message: "업로드 한도를 초과했습니다. 잠시 후 다시 시도해 주세요." } },

@@ -51,6 +51,9 @@ export interface UploadJobRow {
   geocoder_stats: Record<string, number>;
   failure_preview: Array<{ row_index: number; address_raw: string; reason: string; attempted: string[] }>;
   rows: unknown[];
+  job_token_hash: string | null;
+  locked_until: string | null;
+  cleanup_after: string | null;
   error_message: string | null;
   source_file: string | null;
   created_at: string;

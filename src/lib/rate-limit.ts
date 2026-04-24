@@ -1,4 +1,6 @@
 // src/lib/rate-limit.ts
+import { supabaseServer } from "@/lib/supabase/server";
+
 type Bucket = { count: number; resetAt: number };
 const store = new Map<string, Bucket>();
 const MAX_BUCKETS = 10_000;
@@ -34,6 +36,31 @@ export function ipKey(req: Request, prefix: string): string {
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     "unknown";
   return `${prefix}:${ip}`;
+}
+
+type RateLimitResult = { allowed: boolean; retryAfterMs: number };
+
+export async function rateLimitRequest(req: Request, prefix: string, cfg: RateLimit): Promise<RateLimitResult> {
+  const key = ipKey(req, prefix);
+  try {
+    const { data, error } = await supabaseServer().rpc("take_rate_limit", {
+      p_key: key,
+      p_limit: cfg.limit,
+      p_window_seconds: Math.ceil(cfg.windowMs / 1000),
+    });
+    if (!error) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row && typeof row.allowed === "boolean") {
+        return {
+          allowed: row.allowed,
+          retryAfterMs: Number(row.retry_after_ms ?? 0),
+        };
+      }
+    }
+  } catch {
+    // Local tests and un-migrated environments fall back to the in-memory limiter.
+  }
+  return rateLimit(key, cfg);
 }
 
 export const LIMITS = {

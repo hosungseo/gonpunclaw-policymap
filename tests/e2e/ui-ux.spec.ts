@@ -92,6 +92,7 @@ test.describe("public UI polish", () => {
         body: JSON.stringify({
           ok: true,
           job_id: "job-1",
+          job_token: "job-token-123",
           status: "pending",
           slug: "sample-map",
           admin_token: "admin-token-123",
@@ -105,6 +106,7 @@ test.describe("public UI polish", () => {
       });
     });
     await page.route("**/api/upload/jobs/job-1/process", async (route) => {
+      expect(route.request().headers()["x-upload-job-token"]).toBe("job-token-123");
       await route.fulfill({
         status: 200,
         contentType: "application/json",

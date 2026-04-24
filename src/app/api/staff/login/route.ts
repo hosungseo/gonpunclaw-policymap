@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { LIMITS, ipKey, rateLimit } from "@/lib/rate-limit";
+import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import {
   STAFF_COOKIE,
   STAFF_SESSION_MAX_AGE,
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     redirectTarget = safeRedirect(body?.redirect_to);
   }
 
-  const limit = rateLimit(ipKey(req, "staff-login"), LIMITS.adminAttempt);
+  const limit = await rateLimitRequest(req, "staff-login", LIMITS.adminAttempt);
   if (!limit.allowed) {
     return redirect(req, withErr(redirectTarget, "rate"));
   }

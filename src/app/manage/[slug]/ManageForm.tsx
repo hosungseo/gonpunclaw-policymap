@@ -30,6 +30,12 @@ type ReplaceStatus =
   | { kind: "error"; message: string }
   | { kind: "success"; inserted: number; failed: number };
 
+type ToolStatus =
+  | { kind: "idle" }
+  | { kind: "submitting" }
+  | { kind: "error"; message: string }
+  | { kind: "success"; message: string };
+
 const TITLE_MAX = 120;
 const DESCRIPTION_MAX = 500;
 const LABEL_MAX = 40;
@@ -74,6 +80,7 @@ export function ManageForm({ slug, initial }: { slug: string; initial: ManagedMa
 
       <EditSection slug={slug} initial={initial} token={token} />
       <ReplaceDataSection slug={slug} token={token} />
+      <DataToolsSection slug={slug} token={token} />
       <DeleteSection slug={slug} title={initial.title} token={token} />
     </div>
   );
@@ -347,6 +354,135 @@ function ReplaceDataSection({ slug, token }: { slug: string; token: string }) {
         {status.kind === "submitting" ? "교체 중..." : "데이터 교체"}
       </button>
     </form>
+  );
+}
+
+function DataToolsSection({ slug, token }: { slug: string; token: string }) {
+  const [exportStatus, setExportStatus] = useState<ToolStatus>({ kind: "idle" });
+  const [retryStatus, setRetryStatus] = useState<ToolStatus>({ kind: "idle" });
+
+  async function exportCsv() {
+    if (!token.trim()) {
+      setExportStatus({ kind: "error", message: "관리 토큰을 입력해 주세요." });
+      return;
+    }
+    setExportStatus({ kind: "submitting" });
+    let res: Response;
+    try {
+      res = await fetch(`/api/maps/${slug}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_token: token }),
+      });
+    } catch {
+      setExportStatus({ kind: "error", message: "네트워크 오류가 발생했습니다." });
+      return;
+    }
+
+    if (!res.ok) {
+      const json = (await res.json().catch(() => null)) as { ok?: false; error?: { message?: string } } | null;
+      setExportStatus({ kind: "error", message: json?.error?.message ?? "CSV 내보내기에 실패했습니다." });
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${slug}-markers.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setExportStatus({ kind: "success", message: "CSV 파일을 내려받았습니다." });
+  }
+
+  async function retryFailures() {
+    if (!token.trim()) {
+      setRetryStatus({ kind: "error", message: "관리 토큰을 입력해 주세요." });
+      return;
+    }
+    setRetryStatus({ kind: "submitting" });
+    let res: Response;
+    try {
+      res = await fetch(`/api/maps/${slug}/retry-failures`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_token: token }),
+      });
+    } catch {
+      setRetryStatus({ kind: "error", message: "네트워크 오류가 발생했습니다." });
+      return;
+    }
+
+    const json = (await res.json().catch(() => null)) as
+      | { ok: true; inserted: number; failed: number; remaining: number }
+      | { ok: false; error?: { message?: string } }
+      | null;
+    if (!res.ok || !json?.ok) {
+      setRetryStatus({ kind: "error", message: json?.ok === false ? json.error?.message ?? "실패 주소 재시도에 실패했습니다." : "실패 주소 재시도에 실패했습니다." });
+      return;
+    }
+
+    setRetryStatus({
+      kind: "success",
+      message: `재시도 완료: 추가 성공 ${json.inserted.toLocaleString()}개, 다시 실패 ${json.failed.toLocaleString()}개, 남은 실패 ${json.remaining.toLocaleString()}개`,
+    });
+  }
+
+  return (
+    <section className="space-y-5 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">데이터 운영 도구</h2>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          현재 지도 데이터를 CSV로 내려받거나, 좌표 변환에 실패한 주소만 다시 시도할 수 있습니다.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => void exportCsv()}
+          disabled={exportStatus.kind === "submitting"}
+          className="inline-flex items-center justify-center rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200"
+        >
+          {exportStatus.kind === "submitting" ? "내보내는 중..." : "CSV 내보내기"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void retryFailures()}
+          disabled={retryStatus.kind === "submitting"}
+          className="inline-flex items-center justify-center rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+        >
+          {retryStatus.kind === "submitting" ? "재시도 중..." : "실패 주소만 재시도"}
+        </button>
+      </div>
+
+      <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+        CSV에는 공개 지도에 등록된 마커와 E열 이후 추가 정보가 포함됩니다. 실패 주소 재시도는 기존 성공 마커를 지우지 않습니다.
+      </p>
+
+      {exportStatus.kind === "error" && (
+        <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+          {exportStatus.message}
+        </p>
+      )}
+      {exportStatus.kind === "success" && (
+        <p className="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+          {exportStatus.message}
+        </p>
+      )}
+      {retryStatus.kind === "error" && (
+        <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+          {retryStatus.message}
+        </p>
+      )}
+      {retryStatus.kind === "success" && (
+        <p className="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+          {retryStatus.message}
+        </p>
+      )}
+    </section>
   );
 }
 

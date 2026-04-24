@@ -39,5 +39,9 @@ describe("ManageForm UI", () => {
     expect(document.body.textContent).toContain("엑셀 데이터 교체");
     expect(document.body.textContent).toContain("기존 마커를 새 엑셀 내용으로 교체합니다.");
     expect(document.body.textContent).toContain("관리 토큰과 공개 링크는 그대로 유지됩니다.");
+    expect(document.body.textContent).toContain("데이터 운영 도구");
+    expect(document.body.textContent).toContain("CSV 내보내기");
+    expect(document.body.textContent).toContain("실패 주소만 재시도");
+    expect(document.body.textContent).toContain("실패 주소 재시도는 기존 성공 마커를 지우지 않습니다.");
   });
 });

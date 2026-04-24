@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyAdminTokenForMap } from "@/lib/admin-auth";
 import { supabaseServer } from "@/lib/supabase/server";
-import { LIMITS, ipKey, rateLimit } from "@/lib/rate-limit";
+import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -55,7 +55,7 @@ export async function POST(
 ): Promise<NextResponse<UpdateOk | UpdateErr>> {
   const { slug } = await context.params;
 
-  const limit = rateLimit(ipKey(req, "admin-update"), LIMITS.adminAttempt);
+  const limit = await rateLimitRequest(req, "admin-update", LIMITS.adminAttempt);
   if (!limit.allowed) {
     return NextResponse.json(
       { ok: false, error: { code: "RATE_LIMITED", message: "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요." } },
