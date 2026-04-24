@@ -122,6 +122,12 @@ E열 이후는 공개 지도 팝업에 표시되므로 전화번호, 이메일, 
 
 ## 개발
 
+필수 도구:
+
+- Node.js 20 이상
+- Docker Desktop 또는 Docker 호환 런타임
+- Supabase CLI는 `npx supabase`로 실행합니다. `npm install -g supabase` 전역 설치는 사용하지 않습니다.
+
 ```bash
 npm install
 npm run dev          # http://localhost:3000
@@ -133,6 +139,58 @@ npm run build
 
 로컬 실행에는 `.env.example`을 참고해 `.env.local`을 구성해야 합니다. 실제 운영 환경값이나
 비밀키는 공개 저장소에 기록하지 않습니다.
+
+### 로컬 Supabase 실행
+
+저장소에는 `supabase/migrations`가 포함되어 있어 로컬 DB를 같은 구조로 올릴 수 있습니다.
+
+```bash
+npx supabase start
+```
+
+처음 실행하면 Docker 이미지 다운로드 때문에 시간이 걸립니다. 실행이 끝나면 CLI가 로컬
+Project URL, REST URL, DB URL, Publishable key, Secret key를 출력합니다. 이 값으로
+`.env.local`을 채우고 Next.js 개발 서버를 실행합니다.
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_SERVICE_ROLE_KEY=<supabase start가 출력한 Secret key>
+ADMIN_TOKEN_PEPPER=<openssl rand -hex 32 결과>
+STAFF_DASHBOARD_TOKEN=<로컬에서 사용할 임의 토큰>
+CRON_SECRET=<로컬에서 사용할 임의 토큰>
+```
+
+로컬 작업을 끝낼 때는 DB 데이터를 유지하려면 아래 명령을 사용합니다.
+
+```bash
+npx supabase stop
+```
+
+CLI 업그레이드나 로컬 DB를 깨끗하게 다시 만들기 전에는 필요한 스키마와 데이터를 먼저 백업합니다.
+
+```bash
+npx supabase db diff -f my_schema
+npx supabase db dump --local --data-only > supabase/seed.sql
+npx supabase stop --no-backup
+```
+
+원격 Supabase에 배포할 때는 운영 프로젝트를 링크한 뒤 마이그레이션을 적용합니다. 프로젝트 ref,
+DB 비밀번호, 서비스 키는 공개 문서나 커밋에 남기지 않습니다.
+
+```bash
+npx supabase link --project-ref <project-ref>
+npx supabase migration list
+npx supabase db push
+```
+
+`Could not find the table 'public.upload_jobs' in the schema cache` 오류가 나면 먼저 운영 앱이
+마이그레이션을 적용한 Supabase 프로젝트를 보고 있는지 확인합니다. 특히 Vercel Production의
+`NEXT_PUBLIC_SUPABASE_URL`과 `SUPABASE_SERVICE_ROLE_KEY`가 같은 프로젝트의 값이어야 합니다.
+DB에 테이블이 있는지는 아래처럼 확인할 수 있습니다.
+
+```bash
+npx supabase db query "select to_regclass('public.upload_jobs') as upload_jobs;" --linked
+```
 
 운영 배포에서는 `CRON_SECRET`을 설정합니다. `vercel.json`의 일일 Cron이
 `/api/cron/process-upload-jobs`를 호출해 브라우저가 닫힌 업로드 작업을 이어 처리하고,
