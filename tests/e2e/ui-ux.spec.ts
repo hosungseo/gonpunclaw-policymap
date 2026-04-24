@@ -88,6 +88,29 @@ test.describe("public UI polish", () => {
   });
 
   test("upload form accepts spreadsheet files by drag and drop", async ({ page }) => {
+    let uploadRequests = 0;
+    await page.route("**/api/upload/jobs", async (route) => {
+      uploadRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          job_id: "job-1",
+          job_token: "job-token-123",
+          status: "completed",
+          slug: "sample-map",
+          admin_token: "admin-token-123",
+          total: 2,
+          processed: 2,
+          inserted: 2,
+          failed: 0,
+          geocoder_stats: { kakao: 2 },
+          failure_preview: [],
+        }),
+      });
+    });
+
     await page.goto("/upload");
 
     const filePath = path.join(process.cwd(), "tests/fixtures/excel/valid_small.xlsx");
@@ -115,6 +138,12 @@ test.describe("public UI polish", () => {
     await expect(page.getByText("미리보기")).toBeVisible();
     await expect(page.getByText("2개 위치")).toBeVisible();
     await expect(page.getByRole("button", { name: "지도 생성" })).toBeDisabled();
+    await page.getByLabel(/지도 제목/).fill("드래그 업로드 테스트");
+    await expect(page.getByRole("button", { name: "지도 생성" })).toBeEnabled();
+    await page.getByRole("button", { name: "지도 생성" }).click();
+
+    await expect(page.getByRole("heading", { name: "지도가 생성되었습니다" })).toBeVisible();
+    expect(uploadRequests).toBe(1);
     await expectNoHorizontalOverflow(page);
   });
 

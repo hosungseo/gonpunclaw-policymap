@@ -1,4 +1,6 @@
 import { act } from "react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { UploadForm } from "@/app/upload/UploadForm";
@@ -13,6 +15,24 @@ afterEach(() => {
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
 });
+
+function validSpreadsheetFile() {
+  const fileBuffer = readFileSync(path.join(process.cwd(), "tests/fixtures/excel/valid_small.xlsx"));
+  return new File([new Uint8Array(fileBuffer)], "valid_small.xlsx", {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+}
+
+async function selectFile(input: HTMLInputElement, file: File) {
+  await act(async () => {
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [file],
+    });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  });
+}
 
 describe("UploadForm UI", () => {
   test("shows progress and then public map, manage page, and token actions after successful upload job", async () => {
@@ -79,15 +99,11 @@ describe("UploadForm UI", () => {
     expect(file).not.toBeNull();
     expect(form).not.toBeNull();
 
-    act(() => {
+    await act(async () => {
       title!.value = "테스트 지도";
       title!.dispatchEvent(new Event("input", { bubbles: true }));
-      Object.defineProperty(file!, "files", {
-        configurable: true,
-        value: [new File(["x"], "sample.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })],
-      });
-      file!.dispatchEvent(new Event("change", { bubbles: true }));
     });
+    await selectFile(file!, validSpreadsheetFile());
 
     await act(async () => {
       form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -144,15 +160,11 @@ describe("UploadForm UI", () => {
     const file = document.querySelector<HTMLInputElement>("input[type=file]");
     const form = document.querySelector("form");
 
-    act(() => {
+    await act(async () => {
       title!.value = "테스트 지도";
       title!.dispatchEvent(new Event("input", { bubbles: true }));
-      Object.defineProperty(file!, "files", {
-        configurable: true,
-        value: [new File(["x"], "sample.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })],
-      });
-      file!.dispatchEvent(new Event("change", { bubbles: true }));
     });
+    await selectFile(file!, validSpreadsheetFile());
 
     await act(async () => {
       form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -168,7 +180,7 @@ describe("UploadForm UI", () => {
     const resetTitle = document.querySelector<HTMLInputElement>("#title");
     const submit = Array.from(document.querySelectorAll("button")).find((button) => button.textContent === "지도 생성");
     expect(resetTitle?.value).toBe("");
-    expect(document.body.textContent).not.toContain("sample.xlsx");
+    expect(document.body.textContent).not.toContain("valid_small.xlsx");
     expect(submit?.hasAttribute("disabled")).toBe(true);
   });
 });

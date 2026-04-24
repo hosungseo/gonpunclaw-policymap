@@ -100,8 +100,12 @@ export function UploadForm() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!selectedFile || filePreview.kind !== "ready") {
+      setStatus({ kind: "error", message: "엑셀 파일을 선택해 주세요." });
+      return;
+    }
     const fd = new FormData(e.currentTarget);
-    if (selectedFile) fd.set("file", selectedFile);
+    fd.set("file", selectedFile);
     setStatus({ kind: "uploading" });
     let res: Response;
     try {
@@ -584,7 +588,6 @@ export function UploadForm() {
               name="file"
               type="file"
               accept=".xlsx,.xls,.csv"
-              required
               onChange={(e) => void handleFileChange(e.target.files?.[0])}
               className="sr-only"
             />
