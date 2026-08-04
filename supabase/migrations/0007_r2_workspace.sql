@@ -1,7 +1,7 @@
 -- R2 workspace: reusable templates, policy layer metadata, and map snapshots.
 
 create table if not exists public.map_templates (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   title text not null,
   audience text not null default '',
@@ -18,7 +18,7 @@ create table if not exists public.map_templates (
 create index if not exists map_templates_active_title_idx on public.map_templates (active, title);
 
 create table if not exists public.policy_layers (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   title text not null,
   layer_type text not null check (layer_type in ('population_decline', 'population_interest')),
@@ -35,7 +35,7 @@ create table if not exists public.policy_layers (
 create index if not exists policy_layers_active_idx on public.policy_layers (active, layer_type);
 
 create table if not exists public.map_versions (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   map_id uuid not null references public.maps(id) on delete cascade,
   version_number int not null,
   status text not null default 'draft' check (status in ('draft', 'published', 'archived')),

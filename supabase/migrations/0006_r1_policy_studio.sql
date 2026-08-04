@@ -85,7 +85,7 @@ begin
 end $$;
 
 create table if not exists public.review_actions (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   map_id uuid not null references public.maps(id) on delete cascade,
   job_id uuid references public.upload_jobs(id) on delete set null,
   row_index int not null,

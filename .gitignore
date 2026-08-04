@@ -46,6 +46,9 @@ docs/VERCEL-ENV-QUICK.md
 # vercel
 .vercel
 
+# supabase CLI state
+/supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
