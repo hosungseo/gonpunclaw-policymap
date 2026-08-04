@@ -1,246 +1,250 @@
 import Link from "next/link";
-
-const CAPABILITIES = [
-  {
-    label: "주소 자동 좌표화",
-    value: "3단계",
-    body: "카카오, VWorld, Juso 순서로 좌표를 찾고 실패 행은 따로 집계합니다.",
-  },
-  {
-    label: "공개 지도",
-    value: "즉시",
-    body: "업로드가 끝나면 공유 링크와 관리 링크가 바로 발급됩니다.",
-  },
-  {
-    label: "탐색 도구",
-    value: "검색·필터·표",
-    body: "분류와 값 범위로 걸러 보고, 표에서 위치를 다시 지도에 띄울 수 있습니다.",
-  },
-];
+import styles from "./home.module.css";
 
 const WORKFLOW = [
   {
+    number: "01",
     title: "데이터 준비",
-    body: "템플릿에 주소, 이름, 값, 분류를 채웁니다. 현장 메모나 추가 컬럼도 함께 보관할 수 있습니다.",
+    body: "기존 XLSX·CSV를 올리면 시트와 주소·이름·대표값 열을 먼저 읽습니다.",
+    meta: "파일 구조 자동 감지",
   },
   {
+    number: "02",
     title: "지도 검토",
-    body: "좌표 변환 후 공개 지도에서 검색, 분류 필터, 값 범위, 표 보기로 데이터 상태를 확인합니다.",
+    body: "좌표 변환 결과와 실패 주소를 확인하고, 공개할 열만 직접 선택합니다.",
+    meta: "주소 품질과 민감정보 확인",
   },
   {
+    number: "03",
     title: "운영 관리",
-    body: "관리 토큰으로 공개 여부와 설명을 수정하고, 운영자는 신고와 감사 로그를 추적합니다.",
+    body: "출처·기준일·공개 범위를 붙여 발행하고, 버전과 관리 링크를 이어서 운영합니다.",
+    meta: "공개 범위와 변경 이력",
   },
 ];
 
-const USE_CASES = ["복지시설 분포", "정책 거점기관", "현장 점검 대상", "지원 대상 위치", "공공서비스 권역"];
-
-const TABLE_ROWS = [
-  ["청년정책센터", "청년", "120"],
-  ["동부복지관", "복지", "48"],
-  ["현장지원소", "점검", "16"],
+const CAPABILITIES = [
+  {
+    index: "A",
+    value: "3단계",
+    title: "주소 자동 좌표화",
+    body: "카카오·VWorld·도로명주소 API를 순서대로 사용하고, 찾지 못한 주소는 검수 목록으로 분리합니다.",
+  },
+  {
+    index: "B",
+    value: "즉시",
+    title: "공개 링크 발행",
+    body: "검수가 끝나면 지도 링크와 내부 관리 링크를 분리해 발급합니다. 비공개·링크 공개·전체 공개를 선택할 수 있습니다.",
+  },
+  {
+    index: "C",
+    value: "지도 + 표",
+    title: "현황을 보는 두 가지 방식",
+    body: "검색·분류·값 범위로 좁혀 보고, 같은 결과를 지도와 표 사이에서 오가며 확인합니다.",
+  },
 ];
+
+const PIPELINE = [
+  ["01", "파일 업로드"],
+  ["02", "주소 품질 검수"],
+  ["03", "공개 범위 확인"],
+  ["04", "지도 링크 발행"],
+];
+
+function PolicyMapPreview() {
+  return (
+    <div className={styles.mapStage} aria-hidden="true">
+      <div className={styles.mapTopbar}>
+        <div>
+          <span className={styles.mapOverline}>LIVE WORKSPACE</span>
+          <strong>생활SOC 운영 현황</strong>
+        </div>
+        <span className={styles.liveStatus}><i /> 공개 준비</span>
+      </div>
+
+      <div className={styles.mapCanvas}>
+        <svg className={styles.mapSvg} viewBox="0 0 720 540" role="presentation">
+          <defs>
+            <linearGradient id="terrain" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stopColor="#18263b" />
+              <stop offset="1" stopColor="#0c1728" />
+            </linearGradient>
+            <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="10" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <path
+            className={styles.landmass}
+            d="M179 85C229 48 297 51 335 82c31 25 49 59 91 78 58 27 101 21 121 66 21 48-12 81-37 111-28 33-40 82-91 104-54 24-83-5-122 7-49 15-105 1-130-42-20-35 8-75-9-107-22-39-63-56-57-105 5-42 36-76 69-107Z"
+          />
+          <path className={styles.regionLine} d="M191 155c73 37 109 17 165 42 57 26 81 65 170 59" />
+          <path className={styles.regionLine} d="M175 274c55-29 95-22 138 3 42 24 72 20 109 4 39-16 76-12 109 14" />
+          <path className={styles.regionLine} d="M234 101c6 60-21 95-10 144 13 57 62 71 68 124 3 30-9 56-26 76" />
+          <path className={styles.regionLine} d="M359 83c-18 58-17 99 14 135 42 48 13 107 47 160 13 21 35 39 61 50" />
+          <path className={styles.route} d="M214 353C282 302 304 196 389 204c63 6 71 83 135 104" />
+          <circle className={styles.routePoint} cx="214" cy="353" r="7" />
+          <circle className={styles.routePoint} cx="389" cy="204" r="7" />
+          <circle className={styles.routePoint} cx="524" cy="308" r="7" />
+          <circle className={styles.pinHalo} cx="389" cy="204" r="24" />
+          <circle className={styles.pin} cx="389" cy="204" r="10" filter="url(#softGlow)" />
+          <circle className={styles.pinSmall} cx="266" cy="130" r="8" />
+          <circle className={styles.pinSmall} cx="482" cy="379" r="8" />
+          <circle className={styles.pinWarm} cx="214" cy="353" r="9" />
+        </svg>
+
+        <div className={`${styles.mapLabel} ${styles.labelSeoul}`}>
+          <span>서울 중구</span><strong>18곳</strong>
+        </div>
+        <div className={`${styles.mapLabel} ${styles.labelSejong}`}>
+          <span>세종</span><strong>검수 2</strong>
+        </div>
+        <div className={`${styles.mapLabel} ${styles.labelBusan}`}>
+          <span>부산</span><strong>12곳</strong>
+        </div>
+
+        <div className={styles.mapSummary}>
+          <span>현재 조건</span>
+          <strong>128</strong>
+          <small>개 정책 거점</small>
+        </div>
+      </div>
+
+      <div className={styles.mapFooter}>
+        <span>출처 · 2026 생활SOC 현황</span>
+        <span>기준일 · 2026. 07. 31</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <main className="min-h-dvh bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
-      <section className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <Link href="/" className="text-sm font-semibold tracking-tight text-zinc-950 dark:text-white">
-            GonpunClaw PolicyMap
+    <main className={styles.page}>
+      <section className={styles.hero}>
+        <div className={styles.heroGrid} />
+        <header className={styles.header}>
+          <Link href="/" className={styles.brand} aria-label="GonpunClaw PolicyMap 홈">
+            <span className={styles.brandMark}>P</span>
+            <span><strong>GonpunClaw</strong><small>PolicyMap</small></span>
           </Link>
-          <nav className="hidden items-center gap-5 text-sm font-medium text-zinc-600 md:flex dark:text-zinc-300">
-            <a href="#workflow" className="hover:text-zinc-950 dark:hover:text-white">흐름</a>
-            <a href="#capabilities" className="hover:text-zinc-950 dark:hover:text-white">기능</a>
-            <Link href="/demo" className="hover:text-zinc-950 dark:hover:text-white">샘플</Link>
-            <Link href="/guide" className="hover:text-zinc-950 dark:hover:text-white">
-              가이드
-            </Link>
+          <nav className={styles.nav} aria-label="주요 메뉴">
+            <a href="#workflow">흐름</a>
+            <a href="#capabilities">기능</a>
+            <Link href="/templates">템플릿</Link>
+            <Link href="/guide">가이드</Link>
           </nav>
-          <Link
-            href="/upload"
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
-          >
-            지도 만들기
-          </Link>
-        </div>
-      </section>
+          <Link href="/upload" className={styles.headerCta}>지도 만들기 <span>↗</span></Link>
+        </header>
 
-      <section className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-12 lg:grid-cols-[1fr_1.05fr] lg:py-16">
-          <div className="flex flex-col justify-center">
-            <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">업무 흐름 그대로</p>
-            <h1 className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-zinc-950 dark:text-white sm:text-5xl">
-              엑셀 주소 목록을 바로 공유 가능한 정책 지도로
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 dark:text-zinc-300">
-              사업장, 지원시설, 거점기관처럼 주소가 있는 데이터를 업로드하면 좌표 변환부터 공개
-              링크 발급까지 한 번에 처리합니다. 별도 GIS 도구 없이 정책 현황을 지도와 표로 함께
-              확인할 수 있습니다.
+        <div className={styles.heroInner}>
+          <div className={styles.heroCopy}>
+            <p className={styles.productName}>GonpunClaw <span>PolicyMap</span></p>
+            <p className={styles.eyebrow}>업무 흐름 그대로</p>
+            <h1>엑셀 주소 목록을<br />바로 공유 가능한<br /><em>정책 지도로.</em></h1>
+            <p className={styles.lede}>
+              별도 GIS 도구 없이, 주소가 있는 업무 데이터를 검수 가능한 지도와 표로 바꿉니다.
             </p>
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">업로드</p>
-                <p className="mt-1 text-lg font-semibold">XLSX 우선</p>
-              </div>
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">탐색</p>
-                <p className="mt-1 text-lg font-semibold">지도 + 표</p>
-              </div>
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">관리</p>
-                <p className="mt-1 text-lg font-semibold">토큰 기반</p>
-              </div>
+            <div className={styles.heroActions}>
+              <Link href="/upload" className={styles.primaryAction}>지도 만들기 <span>→</span></Link>
+              <Link href="/demo" className={styles.secondaryAction}>샘플 지도 보기 <span>↗</span></Link>
             </div>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link
-                href="/upload"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-zinc-950 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
-              >
-                지도 만들기
-              </Link>
-              <Link
-                href="/demo"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-600"
-              >
-                샘플 지도 보기
-              </Link>
-              <a
-                href="/template.xlsx"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
-              >
-                엑셀 템플릿 받기
-              </a>
-              <Link
-                href="/templates"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-5 text-sm font-semibold text-blue-800 transition hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900"
-              >
-                업무별 템플릿
-              </Link>
-              <Link
-                href="/guide"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
-              >
-                사용법 보기
-              </Link>
-            </div>
-
-            <div className="mt-8 flex flex-wrap gap-2">
-              {USE_CASES.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
+            <p className={styles.microcopy}>XLSX·CSV 지원 <i /> 가입 없이 시작 <i /> 공개 범위 직접 선택</p>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-              <div>
-                <p className="text-sm font-semibold">정책 거점 지도</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">검색 결과 128곳</p>
-              </div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                공개 중
-              </span>
-            </div>
-            <div className="grid min-h-[380px] grid-cols-1 md:grid-cols-[210px_1fr]">
-              <div className="border-b border-zinc-200 bg-white p-4 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-                  기관명, 주소 검색
-                </div>
-                <div className="mt-5">
-                  <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">분류</p>
-                  <div className="mt-2 space-y-2">
-                    {["청년", "복지", "점검"].map((category) => (
-                      <div key={category} className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
-                        <span>{category}</span>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
-                          {category === "청년" ? 52 : category === "복지" ? 41 : 35}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-5 rounded-lg bg-blue-700 px-3 py-2 text-center text-xs font-semibold text-white">
-                  지도 맞춤
-                </div>
-              </div>
-              <div className="grid min-h-[380px] grid-rows-[1fr_auto]">
-                <div className="relative overflow-hidden bg-[linear-gradient(135deg,#dbeafe_0%,#f8fafc_45%,#dcfce7_100%)] dark:bg-[linear-gradient(135deg,#172554_0%,#18181b_50%,#064e3b_100%)]">
-                  <div className="absolute inset-x-8 top-10 h-px bg-white/70 dark:bg-white/10" />
-                  <div className="absolute inset-y-8 left-16 w-px bg-white/70 dark:bg-white/10" />
-                  <div className="absolute left-[16%] top-[34%] h-8 w-8 rounded-full border-4 border-white bg-blue-600 shadow-lg" />
-                  <div className="absolute left-[48%] top-[44%] h-10 w-10 rounded-full border-4 border-white bg-red-600 shadow-lg" />
-                  <div className="absolute right-[18%] top-[23%] h-7 w-7 rounded-full border-4 border-white bg-emerald-600 shadow-lg" />
-                  <div className="absolute bottom-5 right-5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
-                    지도 · 표 전환 가능
-                  </div>
-                </div>
-                <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    {TABLE_ROWS.map(([name, category, count]) => (
-                      <div key={name} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
-                        <p className="truncate font-semibold">{name}</p>
-                        <p className="mt-1 text-zinc-500 dark:text-zinc-400">{category} · {count}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className={styles.heroVisual}>
+            <PolicyMapPreview />
           </div>
         </div>
-      </section>
 
-      <section id="workflow" className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mx-auto w-full max-w-6xl px-6 py-10">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">발행 흐름</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">데이터 준비부터 운영 관리까지</h2>
-              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                처음 쓰는 사용자도 템플릿 작성, 업로드, 지도 검토, 링크 공유 순서로 바로 따라갈 수 있습니다.
-              </p>
-            </div>
-            <Link href="/upload" className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400">
-              업로드로 이동
-            </Link>
-          </div>
-
-          <ol className="mt-8 grid gap-4 md:grid-cols-3">
-            {WORKFLOW.map((step, index) => (
-              <li key={step.title} className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-                <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
-                  STEP {index + 1}
-                </span>
-                <h3 className="mt-3 text-base font-semibold text-zinc-950 dark:text-white">{step.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{step.body}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      <section id="capabilities" className="mx-auto w-full max-w-6xl px-6 py-10">
-        <div className="grid gap-4 md:grid-cols-3">
-          {CAPABILITIES.map((item) => (
-            <article
-              key={item.label}
-              className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
-            >
-              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{item.label}</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-white">{item.value}</p>
-              <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{item.body}</p>
-            </article>
+        <ol className={styles.pipeline} aria-label="지도 발행 과정">
+          {PIPELINE.map(([number, label], index) => (
+            <li key={number}>
+              <span>{number}</span>
+              <strong>{label}</strong>
+              {index < PIPELINE.length - 1 && <i>→</i>}
+            </li>
           ))}
+        </ol>
+      </section>
+
+      <div className={styles.useCaseBand} aria-label="활용 분야">
+        <span>복지시설 분포</span><i />
+        <span>생활SOC</span><i />
+        <span>현장 점검 대상</span><i />
+        <span>정책 거점기관</span><i />
+        <span>지원 대상 위치</span>
+      </div>
+
+      <section id="workflow" className={styles.workflowSection}>
+        <div className={styles.sectionIntro}>
+          <div>
+            <p className={styles.sectionKicker}>발행 흐름</p>
+            <h2>파일에서 현장까지,<br />한 화면 안에서.</h2>
+          </div>
+          <p>처음 쓰는 사람도 데이터 구조 확인, 주소 검수, 공개 범위 설정 순서로 바로 따라갈 수 있습니다.</p>
+        </div>
+
+        <ol className={styles.workflowList}>
+          {WORKFLOW.map((step) => (
+            <li key={step.number}>
+              <span className={styles.stepNumber}>{step.number}</span>
+              <div>
+                <p>{step.meta}</p>
+                <h3>{step.title}</h3>
+                <span>{step.body}</span>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <div className={styles.workflowLinks}>
+          <Link href="/templates">업무별 템플릿 보기 <span>→</span></Link>
+          <a href="/template.xlsx">엑셀 템플릿 받기 <span>↓</span></a>
         </div>
       </section>
+
+      <section id="capabilities" className={styles.capabilitiesSection}>
+        <div className={styles.capabilitiesIntro}>
+          <p className={styles.sectionKicker}>정책 데이터를 다루는 기준</p>
+          <h2>빠르게 만들고,<br />근거 있게 운영합니다.</h2>
+          <p>지도 생성에서 끝나지 않도록 출처, 기준일, 검수 이력과 공개 범위를 함께 관리합니다.</p>
+          <Link href="/guide">전체 사용법 보기 <span>→</span></Link>
+        </div>
+
+        <ol className={styles.capabilityList}>
+          {CAPABILITIES.map((item) => (
+            <li key={item.index}>
+              <span className={styles.capabilityIndex}>{item.index}</span>
+              <strong>{item.value}</strong>
+              <div>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className={styles.finalCta}>
+        <div>
+          <p>READY TO MAP</p>
+          <h2>주소 목록이 있다면,<br />첫 지도는 이미 절반쯤 완성됐습니다.</h2>
+        </div>
+        <div className={styles.finalActions}>
+          <Link href="/upload">새 지도 만들기 <span>→</span></Link>
+          <Link href="/guide">사용법 보기</Link>
+        </div>
+      </section>
+
+      <footer className={styles.footer}>
+        <Link href="/" className={styles.footerBrand}>GonpunClaw PolicyMap</Link>
+        <p>공공 데이터를 설명 가능한 지도로.</p>
+        <nav aria-label="하단 메뉴">
+          <Link href="/templates">템플릿</Link>
+          <Link href="/guide">가이드</Link>
+          <Link href="/llms.txt">llms.txt</Link>
+        </nav>
+      </footer>
     </main>
   );
 }

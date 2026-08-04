@@ -22,7 +22,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-family: var(--font-geist-sans), "Apple SD Gothic Neo", "Noto Sans KR", Arial, Helvetica, sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
