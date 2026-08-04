@@ -1,0 +1,3 @@
+# Local agent and MCP configuration must never enter deployment bundles.
+.mcp.json
+.omc/
