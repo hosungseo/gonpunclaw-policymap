@@ -10,6 +10,16 @@ export type ManagedMap = {
   value_unit: string;
   category_label: string;
   is_listed: boolean;
+  visibility?: "public" | "unlisted" | "private";
+  source_name?: string;
+  source_url?: string;
+  data_as_of?: string;
+  owner_department?: string;
+  contact?: string;
+  license?: string;
+  refresh_cycle?: string;
+  next_review_at?: string;
+  last_data_update_at?: string;
 };
 
 type EditStatus =
@@ -121,6 +131,15 @@ function EditSection({ slug, initial, token }: { slug: string; initial: ManagedM
           value_unit: values.value_unit.trim() || null,
           category_label: values.category_label.trim() || null,
           is_listed: values.is_listed,
+          visibility: values.visibility ?? (values.is_listed ? "public" : "private"),
+          source_name: values.source_name?.trim() || null,
+          source_url: values.source_url?.trim() || null,
+          data_as_of: values.data_as_of?.trim() || null,
+          owner_department: values.owner_department?.trim() || null,
+          contact: values.contact?.trim() || null,
+          license: values.license?.trim() || null,
+          refresh_cycle: values.refresh_cycle?.trim() || null,
+          next_review_at: values.next_review_at?.trim() || null,
         }),
       });
     } catch {
@@ -146,6 +165,16 @@ function EditSection({ slug, initial, token }: { slug: string; initial: ManagedM
       value_unit: json.map.value_unit ?? "",
       category_label: json.map.category_label ?? "",
       is_listed: json.map.is_listed,
+      visibility: json.map.visibility ?? (json.map.is_listed ? "public" : "private"),
+      source_name: json.map.source_name ?? "",
+      source_url: json.map.source_url ?? "",
+      data_as_of: json.map.data_as_of ?? "",
+      owner_department: json.map.owner_department ?? "",
+      contact: json.map.contact ?? "",
+      license: json.map.license ?? "",
+      refresh_cycle: json.map.refresh_cycle ?? "",
+      next_review_at: json.map.next_review_at ?? "",
+      last_data_update_at: json.map.last_data_update_at ?? "",
     });
     setStatus({ kind: "saved" });
   }
@@ -226,15 +255,46 @@ function EditSection({ slug, initial, token }: { slug: string; initial: ManagedM
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={values.is_listed}
-          onChange={(e) => update("is_listed", e.target.checked)}
-          className="h-4 w-4"
-        />
-        <span className="text-zinc-800 dark:text-zinc-200">공개 (체크 해제 시 공개 지도 접근이 차단됩니다)</span>
-      </label>
+      <div className="space-y-4 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+        <div>
+          <h3 className="text-base font-semibold">출처와 관리 정보</h3>
+          <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-400">공개·링크 공개로 전환하려면 출처, 기준일, 담당 주체를 입력해야 합니다.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ManagedTextInput label="자료 출처" value={values.source_name ?? ""} onChange={(value) => update("source_name", value)} placeholder="예: ○○시 복지정책과" />
+          <ManagedTextInput label="출처 URL(선택)" value={values.source_url ?? ""} onChange={(value) => update("source_url", value)} placeholder="https://..." type="url" />
+          <ManagedTextInput label="자료 기준일" value={values.data_as_of ?? ""} onChange={(value) => update("data_as_of", value)} type="date" />
+          <ManagedTextInput label="담당 부서/관리 주체" value={values.owner_department ?? ""} onChange={(value) => update("owner_department", value)} placeholder="예: 지역경제과" />
+          <ManagedTextInput label="문의처(선택)" value={values.contact ?? ""} onChange={(value) => update("contact", value)} placeholder="대표 전화 또는 이메일" />
+          <ManagedTextInput label="이용조건(선택)" value={values.license ?? ""} onChange={(value) => update("license", value)} placeholder="예: 공공누리 제1유형" />
+          <ManagedTextInput label="갱신주기(선택)" value={values.refresh_cycle ?? ""} onChange={(value) => update("refresh_cycle", value)} placeholder="예: 분기별" />
+          <ManagedTextInput label="다음 점검일(선택)" value={values.next_review_at ?? ""} onChange={(value) => update("next_review_at", value)} type="date" />
+        </div>
+        {values.last_data_update_at && <p className="text-xs text-zinc-500 dark:text-zinc-400">마지막 데이터 갱신: {new Date(values.last_data_update_at).toLocaleString("ko-KR")}</p>}
+        {values.next_review_at && values.next_review_at < new Date().toISOString().slice(0, 10) && (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            다음 점검일이 지났습니다. 최신 자료로 교체한 뒤 점검일을 갱신하세요.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium" htmlFor="visibility">공개 범위</label>
+        <select
+          id="visibility"
+          value={values.visibility ?? (values.is_listed ? "public" : "private")}
+          onChange={(e) => {
+            const visibility = e.target.value as ManagedMap["visibility"];
+            update("visibility", visibility);
+            update("is_listed", visibility === "public");
+          }}
+          className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <option value="public">공개 — 사이트·검색에 표시</option>
+          <option value="unlisted">링크 보유자 — 주소를 아는 사람만</option>
+          <option value="private">비공개 — 관리 토큰으로만 관리</option>
+        </select>
+      </div>
       <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
         비공개로 전환하면 공개 링크 접속만 막고 데이터는 보관됩니다. 다시 공개로 바꾸면 같은 링크를 사용할 수 있습니다.
       </p>
@@ -266,9 +326,19 @@ function EditSection({ slug, initial, token }: { slug: string; initial: ManagedM
   );
 }
 
+function ManagedTextInput({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
+  return (
+    <label className="space-y-1 text-sm">
+      <span className="block font-medium">{label}</span>
+      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900" />
+    </label>
+  );
+}
+
 function ReplaceDataSection({ slug, token }: { slug: string; token: string }) {
   const [status, setStatus] = useState<ReplaceStatus>({ kind: "idle" });
   const [fileName, setFileName] = useState("");
+  const [sensitiveConfirmed, setSensitiveConfirmed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -285,6 +355,7 @@ function ReplaceDataSection({ slug, token }: { slug: string; token: string }) {
     const fd = new FormData();
     fd.set("admin_token", token);
     fd.set("file", fileRef.current.files[0]);
+    fd.set("sensitive_confirmed", String(sensitiveConfirmed));
     setStatus({ kind: "submitting" });
 
     let res: Response;
@@ -316,7 +387,7 @@ function ReplaceDataSection({ slug, token }: { slug: string; token: string }) {
       </div>
 
       <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-        새 파일의 E열 이후 정보도 공개 지도 팝업에 표시됩니다. 개인정보나 민감정보가 들어 있는 열은 제거한 뒤 업로드하세요.
+        기존 지도에서 공개하도록 선택한 열 연결을 유지해 새 파일을 검수합니다. 새 파일의 E열 이후 정보도 공개 지도 팝업에 표시될 수 있으므로, 개인정보나 민감정보가 들어 있는 열은 공개 대상에서 제외하세요.
       </div>
 
       <div className="space-y-2">
@@ -334,6 +405,11 @@ function ReplaceDataSection({ slug, token }: { slug: string; token: string }) {
         />
         {fileName && <p className="text-xs text-zinc-500 dark:text-zinc-400">선택됨: {fileName}</p>}
       </div>
+
+      <label className="flex gap-2 text-xs leading-5 text-zinc-700 dark:text-zinc-300">
+        <input type="checkbox" checked={sensitiveConfirmed} onChange={(event) => setSensitiveConfirmed(event.target.checked)} />
+        공개 대상 열에 개인정보·민감정보가 없거나, 공개 가능한 조직 대표 정보임을 확인했습니다.
+      </label>
 
       {status.kind === "error" && (
         <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
@@ -459,7 +535,7 @@ function DataToolsSection({ slug, token }: { slug: string; token: string }) {
       </div>
 
       <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
-        CSV에는 공개 지도에 등록된 마커와 E열 이후 추가 정보가 포함됩니다. 실패 주소 재시도는 기존 성공 마커를 지우지 않습니다.
+        CSV에는 현재 지도에 등록된 마커와 선택한 공개 추가정보가 포함됩니다. 실패 주소 재시도는 기존 성공 마커를 지우지 않습니다.
       </p>
 
       {exportStatus.kind === "error" && (

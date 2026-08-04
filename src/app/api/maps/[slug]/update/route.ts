@@ -4,6 +4,7 @@ import { verifyAdminTokenForMap } from "@/lib/admin-auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
+import { isIsoDate, isVisibility, metadataValidationErrors, type Visibility } from "@/lib/maps/metadata";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,15 @@ type UpdateBody = {
   value_unit?: string | null;
   category_label?: string | null;
   is_listed?: boolean;
+  visibility?: Visibility;
+  source_name?: string | null;
+  source_url?: string | null;
+  data_as_of?: string | null;
+  owner_department?: string | null;
+  contact?: string | null;
+  license?: string | null;
+  refresh_cycle?: string | null;
+  next_review_at?: string | null;
 };
 
 type UpdateOk = {
@@ -32,6 +42,16 @@ type UpdateOk = {
     value_unit: string | null;
     category_label: string | null;
     is_listed: boolean;
+    visibility?: Visibility;
+    source_name?: string | null;
+    source_url?: string | null;
+    data_as_of?: string | null;
+    owner_department?: string | null;
+    contact?: string | null;
+    license?: string | null;
+    refresh_cycle?: string | null;
+    next_review_at?: string | null;
+    last_data_update_at?: string | null;
   };
 };
 type UpdateErr = { ok: false; error: { code: string; message: string } };
@@ -125,6 +145,23 @@ export async function POST(
   if (body.is_listed !== undefined) {
     if (typeof body.is_listed !== "boolean") return jsonError("BAD_IS_LISTED", "공개 여부 값이 올바르지 않습니다.", 400);
     update.is_listed = body.is_listed;
+    if (body.visibility === undefined) update.visibility = body.is_listed ? "public" : "private";
+  }
+
+  if (body.visibility !== undefined) {
+    if (!isVisibility(body.visibility)) return jsonError("BAD_VISIBILITY", "공개 범위 값이 올바르지 않습니다.", 400);
+    update.visibility = body.visibility;
+    update.is_listed = body.visibility === "public";
+  }
+
+  for (const field of ["source_name", "source_url", "data_as_of", "owner_department", "contact", "license", "refresh_cycle", "next_review_at"] as const) {
+    if (body[field] !== undefined) {
+      const result = normalizeOptional(body[field], field, field === "source_url" ? 500 : field === "data_as_of" || field === "next_review_at" ? 10 : 200);
+      if (typeof result === "object" && result !== null && "error" in result) return jsonError("BAD_FIELD", result.error, 400);
+      if (field === "source_url" && result && !/^https?:\/\//i.test(result)) return jsonError("BAD_SOURCE_URL", "출처 URL은 http:// 또는 https://로 시작해야 합니다.", 400);
+      if ((field === "data_as_of" || field === "next_review_at") && result && !isIsoDate(result)) return jsonError("BAD_DATE", `${field}은(는) 유효한 YYYY-MM-DD 날짜여야 합니다.`, 400);
+      update[field] = result;
+    }
   }
 
   if (Object.keys(update).length === 0) {
@@ -136,20 +173,41 @@ export async function POST(
   const sb = supabaseServer();
 
   let previousIsListed: boolean | null = null;
-  if (body.is_listed !== undefined) {
+  let previousMap: Record<string, unknown> = {};
+  const metadataFields = ["source_name", "source_url", "data_as_of", "owner_department"] as const;
+  if (body.is_listed !== undefined || body.visibility !== undefined || metadataFields.some((field) => body[field] !== undefined)) {
     const { data: prev } = await sb
       .from("maps")
-      .select("is_listed")
+      .select("is_listed, visibility, title, description, source_name, source_url, data_as_of, owner_department")
       .eq("id", auth.mapId)
       .single();
-    if (prev) previousIsListed = prev.is_listed;
+    if (prev) {
+      previousIsListed = prev.is_listed;
+      previousMap = prev as Record<string, unknown>;
+    }
+  }
+
+  const currentVisibility = isVisibility(previousMap.visibility) ? previousMap.visibility : previousMap.is_listed ? "public" : "private";
+  const nextVisibility = body.visibility ?? (body.is_listed !== undefined ? (body.is_listed ? "public" : "private") : (Object.keys(previousMap).length > 0 ? currentVisibility : null));
+  if (nextVisibility && nextVisibility !== "private") {
+    const merged = (field: string) => Object.prototype.hasOwnProperty.call(update, field) ? update[field] : previousMap[field];
+    const validation = metadataValidationErrors({
+      title: String(update.title ?? previousMap.title ?? ""),
+      description: String(update.description ?? previousMap.description ?? ""),
+      source_name: String(merged("source_name") ?? "") || null,
+      source_url: String(merged("source_url") ?? "") || null,
+      data_as_of: String(merged("data_as_of") ?? "") || null,
+      owner_department: String(merged("owner_department") ?? "") || null,
+      visibility: nextVisibility,
+    });
+    if (validation.length > 0) return jsonError("METADATA_REQUIRED", `공개 범위로 전환하려면 다음 항목이 필요합니다: ${validation.join(", ")}`, 400);
   }
 
   const { data, error } = await sb
     .from("maps")
     .update(update)
     .eq("id", auth.mapId)
-    .select("slug, title, description, value_label, value_unit, category_label, is_listed")
+    .select("slug, title, description, value_label, value_unit, category_label, is_listed, visibility, source_name, source_url, data_as_of, owner_department, contact, license, refresh_cycle, next_review_at, last_data_update_at")
     .single();
 
   if (error || !data) {
@@ -182,6 +240,16 @@ export async function POST(
       value_unit: data.value_unit ?? null,
       category_label: data.category_label ?? null,
       is_listed: data.is_listed,
+      visibility: data.visibility ?? (data.is_listed ? "public" : "private"),
+      source_name: data.source_name ?? null,
+      source_url: data.source_url ?? null,
+      data_as_of: data.data_as_of ?? null,
+      owner_department: data.owner_department ?? null,
+      contact: data.contact ?? null,
+      license: data.license ?? null,
+      refresh_cycle: data.refresh_cycle ?? null,
+      next_review_at: data.next_review_at ?? null,
+      last_data_update_at: data.last_data_update_at ?? null,
     },
   });
 }

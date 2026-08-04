@@ -19,8 +19,8 @@ export default function UploadPage() {
               <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">새 정책 지도</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight">엑셀 업로드로 지도 만들기</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-                엑셀의 한 행을 지도에 표시될 위치 1개로 변환합니다. 첫 번째 시트의 A~D열을
-                주소, 이름, 대표값, 분류로 읽고, 업로드 후 공개 지도 링크와 관리 링크를 발급합니다.
+                기존 업무 엑셀을 그대로 올리면 시트와 열 역할을 추천합니다. 공개할 열과 주소 품질을
+                확인한 뒤 출처·기준일을 붙여 안전한 범위로 발행합니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-sm">
@@ -41,7 +41,7 @@ export default function UploadPage() {
         </header>
 
         <div className="mb-6 grid gap-3 md:grid-cols-3">
-          {["지도 제목 입력", "행 단위 엑셀 선택", "공개 링크 발급"].map((label, index) => (
+          {["파일 검사·열 연결", "주소 품질 검수", "메타데이터와 공개 범위 확인"].map((label, index) => (
             <div key={label} className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
               <p className="text-xs font-semibold text-blue-700 dark:text-blue-400">STEP {index + 1}</p>
               <p className="mt-1 text-sm font-semibold">{label}</p>

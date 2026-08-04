@@ -72,11 +72,11 @@ export async function POST(
   const sb = supabaseServer();
   const { data: map } = await sb
     .from("maps")
-    .select("id, is_listed")
+    .select("id, is_listed, visibility")
     .eq("slug", slug)
     .maybeSingle();
 
-  if (!map || !map.is_listed) {
+  if (!map || (map.visibility ? map.visibility === "private" : !map.is_listed)) {
     return jsonError("NOT_FOUND", "지도를 찾을 수 없습니다.", 404);
   }
 

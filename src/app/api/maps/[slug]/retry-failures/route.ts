@@ -27,6 +27,7 @@ type FailureRow = {
   id: string;
   row_index: number;
   address_raw: string;
+  address_current?: string | null;
   reason: string;
   attempted_providers: string[] | null;
 };
@@ -69,7 +70,7 @@ export async function POST(
   const sb = supabaseServer();
   const { data: failures, error: failureErr } = await sb
     .from("geocode_failures")
-    .select("id, row_index, address_raw, reason, attempted_providers")
+    .select("id, row_index, address_raw, address_current, reason, attempted_providers")
     .eq("map_id", auth.mapId)
     .order("row_index", { ascending: true })
     .limit(MAX_RETRY_ROWS);
@@ -85,7 +86,7 @@ export async function POST(
 
   const rows: ParsedRow[] = retryRows.map((failure) => ({
     row_index: failure.row_index,
-    address_raw: failure.address_raw,
+    address_raw: failure.address_current?.trim() || failure.address_raw,
     name: null,
     value: null,
     category: null,
@@ -115,6 +116,7 @@ export async function POST(
     await sb
       .from("geocode_failures")
       .update({
+        address_current: failure.address_raw,
         reason: failure.reason,
         attempted_providers: failure.attempted,
       })

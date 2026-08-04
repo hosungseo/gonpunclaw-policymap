@@ -23,6 +23,9 @@ export type UploadJobOk = {
   failed: number;
   geocoder_stats: Record<string, number>;
   failure_preview: FailedGeocodeRow[];
+  quality_review_count: number;
+  excluded_count: number;
+  needs_review: boolean;
   error_message?: string | null;
 };
 
@@ -42,6 +45,8 @@ export type UploadJobRecord = {
   locked_until: string | null;
   cleanup_after: string | null;
   error_message: string | null;
+  quality_review_count?: number;
+  excluded_count?: number;
 };
 
 export type ProcessUploadJobResult =
@@ -49,7 +54,7 @@ export type ProcessUploadJobResult =
   | { ok: false; code: string; message: string; status: number };
 
 const JOB_SELECT =
-  "id, map_id, slug, status, total_rows, processed_rows, inserted_count, failed_count, geocoder_stats, failure_preview, rows, job_token_hash, locked_until, cleanup_after, error_message";
+  "id, map_id, slug, status, total_rows, processed_rows, inserted_count, failed_count, geocoder_stats, failure_preview, rows, job_token_hash, locked_until, cleanup_after, error_message, quality_review_count, excluded_count";
 
 export function serializeUploadJob(job: UploadJobRecord): UploadJobOk {
   return {
@@ -63,6 +68,9 @@ export function serializeUploadJob(job: UploadJobRecord): UploadJobOk {
     failed: job.failed_count,
     geocoder_stats: job.geocoder_stats ?? {},
     failure_preview: job.failure_preview ?? [],
+    quality_review_count: job.quality_review_count ?? 0,
+    excluded_count: job.excluded_count ?? 0,
+    needs_review: (job.quality_review_count ?? 0) > 0 || job.failed_count > 0,
     error_message: job.error_message,
   };
 }
@@ -162,7 +170,7 @@ export async function processUploadJob(
     if (completedStatus === "completed") {
       await sb
         .from("maps")
-        .update({ is_listed: true, geocoder_stats: active.geocoder_stats ?? {}, updated_at: new Date().toISOString() })
+      .update({ geocoder_stats: active.geocoder_stats ?? {}, last_data_update_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         .eq("id", active.map_id);
     }
     return { ok: true, job: updated as UploadJobRecord, completedNow: completedStatus === "completed" };
@@ -197,8 +205,10 @@ export async function processUploadJob(
       map_id: active.map_id,
       row_index: failure.row_index,
       address_raw: failure.address_raw,
+      address_current: failure.address_raw,
       reason: failure.reason,
       attempted_providers: failure.attempted,
+      included: false,
     }));
     for (let i = 0; i < failPayload.length; i += INSERT_CHUNK) {
       await sb.from("geocode_failures").insert(failPayload.slice(i, i + INSERT_CHUNK));
@@ -210,6 +220,7 @@ export async function processUploadJob(
   const failed = active.failed_count + result.failures.length;
   const stats = mergeGeocoderStats(active.geocoder_stats ?? {}, result.stats);
   const failurePreview = [...(active.failure_preview ?? []), ...result.failures].slice(0, 10);
+  const qualityReviewCount = (active.quality_review_count ?? 0) + result.successes.filter((row) => row.quality_status === "review").length;
   const finished = processed >= active.total_rows;
   const nextStatus: JobStatus = finished ? (inserted > 0 ? "completed" : "failed") : "processing";
   const errorMessage = nextStatus === "failed" ? "모든 주소의 지오코딩에 실패했습니다. API 키와 주소 형식을 확인해 주세요." : null;
@@ -223,6 +234,8 @@ export async function processUploadJob(
       failed_count: failed,
       geocoder_stats: stats,
       failure_preview: failurePreview,
+      quality_review_count: qualityReviewCount,
+      excluded_count: active.excluded_count ?? 0,
       error_message: errorMessage,
       updated_at: new Date().toISOString(),
       locked_until: null,
@@ -239,7 +252,7 @@ export async function processUploadJob(
   if (nextStatus === "completed") {
     await sb
       .from("maps")
-      .update({ is_listed: true, geocoder_stats: stats, updated_at: new Date().toISOString() })
+      .update({ geocoder_stats: stats, last_data_update_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", active.map_id);
     await recordAudit({
       action: "upload_job.complete",

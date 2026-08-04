@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyAdminTokenForMap } from "@/lib/admin-auth";
-import { parseWorkbook } from "@/lib/excel/parse";
+import { inspectWorkbook, parseWorkbook, parsedRowsForSensitiveScan, type ColumnMapping } from "@/lib/excel/parse";
 import { supabaseServer } from "@/lib/supabase/server";
 import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
 import { geocodeParsedRows } from "@/lib/upload/geocode-rows";
-import { detectSensitiveHeaders, sensitiveHeadersMessage } from "@/lib/upload/sensitive";
+import { scanSensitiveData, sensitiveFindingsMessage } from "@/lib/upload/sensitive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_BYTES = 3 * 1024 * 1024;
+const configuredMaxBytes = Number(process.env.MAX_UPLOAD_BYTES);
+const MAX_FILE_BYTES = Number.isFinite(configuredMaxBytes) && configuredMaxBytes > 0 ? configuredMaxBytes : 3 * 1024 * 1024;
 const GEOCODE_CONCURRENCY = 8;
 const INSERT_CHUNK = 500;
 
@@ -71,16 +72,54 @@ export async function POST(
     return jsonError("NO_FILE", "파일을 선택해 주세요.", 400);
   }
   if (file.size > MAX_FILE_BYTES) {
-    return jsonError("FILE_TOO_LARGE", "파일 크기는 3MB를 초과할 수 없습니다.", 413);
+    return jsonError("FILE_TOO_LARGE", `파일 크기는 ${(MAX_FILE_BYTES / (1024 * 1024)).toFixed(1)}MB를 초과할 수 없습니다.`, 413);
+  }
+  if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+    return jsonError("BAD_FILE_TYPE", "XLSX, XLS 또는 CSV 파일만 업로드할 수 있습니다.", 400);
   }
 
-  const parsed = parseWorkbook(Buffer.from(await file.arrayBuffer()));
+  const sb = supabaseServer();
+  const { data: currentMap, error: currentMapError } = await sb
+    .from("maps")
+    .select("column_mapping, public_extra_columns")
+    .eq("id", auth.mapId)
+    .single();
+  if (currentMapError || !currentMap) {
+    return jsonError("MAP_LOOKUP_FAILED", currentMapError?.message ?? "기존 지도 설정을 불러오지 못했습니다.", 500);
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const inspection = inspectWorkbook(buffer, file.name);
+  if (!inspection.ok) return NextResponse.json({ ok: false, error: inspection.error }, { status: 400 });
+  const sheetName = inspection.inspection.sheets[0]?.name;
+  const sheet = inspection.inspection.sheets[0];
+  if (!sheetName || !sheet) return jsonError("BAD_SHEET", "사용할 시트를 찾을 수 없습니다.", 400);
+
+  const storedMapping = currentMap.column_mapping as Partial<ColumnMapping> | null;
+  const mapping = storedMapping && typeof storedMapping === "object" && Number.isInteger(storedMapping.address) ? storedMapping : undefined;
+  const storedExtras = Array.isArray(currentMap.public_extra_columns)
+    ? currentMap.public_extra_columns.filter((index): index is number => Number.isInteger(index))
+    : undefined;
+  const parsed = parseWorkbook(buffer, {
+    sheetName,
+    mapping,
+    publicExtraColumns: storedExtras,
+    allowArbitraryAddressColumn: true,
+    includeRaw: true,
+  });
   if (!parsed.ok) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
-  const sensitiveHeaders = detectSensitiveHeaders(parsed.headers);
-  if (sensitiveHeaders.length > 0) {
-    return jsonError("SENSITIVE_HEADERS", sensitiveHeadersMessage(sensitiveHeaders), 400);
+
+  const publicIndices = [parsed.mapping.address, parsed.mapping.name, parsed.mapping.value, parsed.mapping.category, ...parsed.mapping.extra]
+    .filter((index): index is number => index != null);
+  const findings = scanSensitiveData(parsed.headers, parsedRowsForSensitiveScan(parsed), publicIndices);
+  const blockingFindings = findings.filter((finding) => finding.severity === "block");
+  if (blockingFindings.length > 0) {
+    return jsonError("SENSITIVE_HEADERS", sensitiveFindingsMessage(blockingFindings), 400);
+  }
+  if (findings.length > 0 && form.get("sensitive_confirmed") !== "true") {
+    return jsonError("SENSITIVE_CONFIRMATION_REQUIRED", sensitiveFindingsMessage(findings), 400);
   }
 
   const result = await geocodeParsedRows(parsed.rows, GEOCODE_CONCURRENCY);
@@ -88,7 +127,6 @@ export async function POST(
     return jsonError("ALL_GEOCODE_FAILED", "모든 주소의 지오코딩에 실패했습니다. API 키와 주소 형식을 확인해 주세요.", 422);
   }
 
-  const sb = supabaseServer();
   const { error: oldFailuresErr } = await sb.from("geocode_failures").delete().eq("map_id", auth.mapId);
   if (oldFailuresErr) {
     return jsonError("DELETE_OLD_FAILURES", oldFailuresErr.message, 500);
@@ -111,8 +149,10 @@ export async function POST(
       map_id: auth.mapId,
       row_index: failure.row_index,
       address_raw: failure.address_raw,
+      address_current: failure.address_raw,
       reason: failure.reason,
       attempted_providers: failure.attempted,
+      included: false,
     }));
     for (let i = 0; i < failPayload.length; i += INSERT_CHUNK) {
       await sb.from("geocode_failures").insert(failPayload.slice(i, i + INSERT_CHUNK));
@@ -124,6 +164,9 @@ export async function POST(
     .update({
       source_file: file.name,
       geocoder_stats: result.stats,
+      column_mapping: parsed.mapping,
+      public_extra_columns: parsed.mapping.extra.map((index) => parsed.headers[index]).filter(Boolean),
+      last_data_update_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", auth.mapId);

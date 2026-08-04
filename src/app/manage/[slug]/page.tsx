@@ -7,7 +7,7 @@ async function loadMap(slug: string): Promise<ManagedMap | null> {
   const sb = supabaseServer();
   const { data } = await sb
     .from("maps")
-    .select("title, description, value_label, value_unit, category_label, is_listed")
+    .select("title, description, value_label, value_unit, category_label, is_listed, visibility, source_name, source_url, data_as_of, owner_department, contact, license, refresh_cycle, next_review_at, last_data_update_at")
     .eq("slug", slug)
     .maybeSingle();
   if (!data) return null;
@@ -18,6 +18,16 @@ async function loadMap(slug: string): Promise<ManagedMap | null> {
     value_unit: data.value_unit ?? "",
     category_label: data.category_label ?? "",
     is_listed: data.is_listed,
+    visibility: data.visibility ?? (data.is_listed ? "public" : "private"),
+    source_name: data.source_name ?? "",
+    source_url: data.source_url ?? "",
+    data_as_of: data.data_as_of ?? "",
+    owner_department: data.owner_department ?? "",
+    contact: data.contact ?? "",
+    license: data.license ?? "",
+    refresh_cycle: data.refresh_cycle ?? "",
+    next_review_at: data.next_review_at ?? "",
+    last_data_update_at: data.last_data_update_at ?? "",
   };
 }
 

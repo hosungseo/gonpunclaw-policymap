@@ -14,7 +14,7 @@ export async function GET(
   const { jobId } = await context.params;
   const { data: job, error } = await supabaseServer()
     .from("upload_jobs")
-    .select("id, slug, status, total_rows, processed_rows, inserted_count, failed_count, geocoder_stats, failure_preview, error_message, job_token_hash")
+    .select("id, map_id, slug, status, total_rows, processed_rows, inserted_count, failed_count, geocoder_stats, failure_preview, error_message, job_token_hash, preflight, quality_review_count, excluded_count")
     .eq("id", jobId)
     .single();
 
@@ -52,6 +52,10 @@ export async function GET(
     failed: job.failed_count,
     geocoder_stats: job.geocoder_stats ?? {},
     failure_preview: job.failure_preview ?? [],
+    preflight: job.preflight ?? {},
+    quality_review_count: job.quality_review_count ?? 0,
+    excluded_count: job.excluded_count ?? 0,
+    needs_review: (job.quality_review_count ?? 0) > 0 || job.failed_count > 0,
     error_message: job.error_message,
   });
 }

@@ -28,13 +28,24 @@ export interface MapClientProps {
   valueLabel: string | null;
   valueUnit: string | null;
   categoryLabel: string | null;
+  visibility?: "public" | "unlisted" | "private";
+  sourceName?: string | null;
+  sourceUrl?: string | null;
+  dataAsOf?: string | null;
+  ownerDepartment?: string | null;
+  contact?: string | null;
+  license?: string | null;
+  refreshCycle?: string | null;
+  nextReviewAt?: string | null;
+  lastDataUpdateAt?: string | null;
+  qualitySummary?: { total: number; review: number; excluded: number; failed?: number };
   markers: MarkerData[];
   isDemo?: boolean;
 }
 
 type ViewMode = "map" | "table";
 
-export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, markers, isDemo = false }: MapClientProps) {
+export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateAt, qualitySummary, markers, isDemo = false }: MapClientProps) {
   const [map, setMap] = useState<MLMap | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(null);
   const [valueRange, setValueRange] = useState<[number, number] | null>(null);
@@ -132,6 +143,13 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           {description && (
             <p className="mt-1 truncate text-xs text-zinc-600 dark:text-zinc-400">{description}</p>
           )}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span>{visibility === "unlisted" ? "링크 보유자 공개" : "공개 지도"}</span>
+            {sourceName && <span>출처: {sourceName}</span>}
+            {dataAsOf && <span>기준일: {dataAsOf}</span>}
+            {ownerDepartment && <span>관리: {ownerDepartment}</span>}
+            {lastDataUpdateAt && <span>갱신: {new Date(lastDataUpdateAt).toLocaleDateString("ko-KR")}</span>}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="hidden rounded-lg border border-zinc-300 bg-zinc-50 p-0.5 text-xs md:flex dark:border-zinc-700 dark:bg-zinc-900">
@@ -159,6 +177,21 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           </button>
         </div>
       </header>
+
+      <div className="border-b border-zinc-200 bg-white px-4 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="font-semibold text-zinc-800 dark:text-zinc-200">데이터 품질</span>
+          <span>표시 {markers.length.toLocaleString()}건</span>
+          {qualitySummary?.review ? <span className="text-amber-700 dark:text-amber-300">검수 필요 {qualitySummary.review.toLocaleString()}건</span> : <span className="text-emerald-700 dark:text-emerald-300">자동 검수 완료</span>}
+          {qualitySummary?.failed ? <span className="text-red-700 dark:text-red-300">변환 실패 {qualitySummary.failed.toLocaleString()}건</span> : null}
+          {qualitySummary?.excluded ? <span>제외 {qualitySummary.excluded.toLocaleString()}건</span> : null}
+          {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-blue-700 underline dark:text-blue-400">출처 원문</a>}
+          {license && <span>이용조건: {license}</span>}
+          {refreshCycle && <span>갱신주기: {refreshCycle}</span>}
+          {nextReviewAt && <span>다음 점검일: {nextReviewAt}</span>}
+          {contact && <span>문의: {contact}</span>}
+        </div>
+      </div>
 
       <div className="relative grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[340px_1fr]">
         <aside

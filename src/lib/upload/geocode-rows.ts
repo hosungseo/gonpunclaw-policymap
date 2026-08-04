@@ -1,5 +1,6 @@
 import { defaultChainFromEnv } from "@/lib/geocode";
 import type { ParsedRow } from "@/lib/excel/parse";
+import { classifyGeocodeQuality } from "@/lib/upload/quality";
 
 export type GeocodedRow = {
   row_index: number;
@@ -12,6 +13,11 @@ export type GeocodedRow = {
   category: string | null;
   extra: Record<string, unknown>;
   geocoder_used: string;
+  quality_status: "success" | "review";
+  quality_reason: string | null;
+  original_address: string;
+  included: boolean;
+  manual_corrected: boolean;
 };
 
 export type FailedGeocodeRow = {
@@ -52,6 +58,11 @@ export async function geocodeParsedRows(rows: ParsedRow[], concurrency: number):
           category: row.category,
           extra: row.extra,
           geocoder_used: result.provider,
+          quality_status: "success",
+          quality_reason: null,
+          original_address: row.address_raw,
+          included: true,
+          manual_corrected: false,
         });
         stats[result.provider] = (stats[result.provider] ?? 0) + 1;
       } else {
@@ -66,6 +77,23 @@ export async function geocodeParsedRows(rows: ParsedRow[], concurrency: number):
   }
 
   await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, rows.length)) }, () => worker()));
+  const coordinateCounts = new Map<string, number>();
+  for (const row of successes) {
+    const key = `${row.lat.toFixed(5)},${row.lng.toFixed(5)}`;
+    coordinateCounts.set(key, (coordinateCounts.get(key) ?? 0) + 1);
+  }
+  for (const row of successes) {
+    const key = `${row.lat.toFixed(5)},${row.lng.toFixed(5)}`;
+    const quality = classifyGeocodeQuality({
+      addressRaw: row.address_raw,
+      addressNormalized: row.address_normalized,
+      lat: row.lat,
+      lng: row.lng,
+      duplicateCoordinateCount: coordinateCounts.get(key),
+    });
+    row.quality_status = quality.status;
+    row.quality_reason = quality.reason;
+  }
   return { successes, failures, stats };
 }
 

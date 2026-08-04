@@ -34,8 +34,8 @@ test.describe("public UI polish", () => {
     await expect(page.getByRole("heading", { name: "1. 엑셀 준비" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "2. 지도 만들기" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "3. 공유와 관리" })).toBeVisible();
-    await expect(page.getByText("주소는 필수이고, 숫자값과 분류는 선택입니다.")).toBeVisible();
-    await expect(page.getByText("C열 숫자값은 지원한도처럼 비교할 숫자가 있을 때만 넣습니다.")).toBeVisible();
+    await expect(page.getByText("주소는 필수이고, 이름·대표값·분류는 선택입니다.")).toBeVisible();
+    await expect(page.getByText("대표값은 지원한도처럼 비교할 숫자가 있을 때만 연결합니다.")).toBeVisible();
     await expect(page.getByText("공개 지도 링크만 외부에 공유하세요.")).toBeVisible();
     await expect(page.getByText("관리 페이지와 관리 토큰은 내부에만 보관합니다.", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "템플릿 다운로드" })).toHaveAttribute("href", "/template.xlsx");
@@ -49,19 +49,19 @@ test.describe("public UI polish", () => {
     const submit = page.getByRole("button", { name: "지도 생성" });
     await expect(page.getByRole("link", { name: "사용법 보기" })).toHaveAttribute("href", "/guide");
     await expect(page.getByText("한 행은 지도에 표시될 위치 1개입니다.")).toBeVisible();
-    await expect(page.getByText("첫 번째 시트만 읽습니다.")).toBeVisible();
-    await expect(page.getByText("A열 주소만 필수이고, B열 이름·C열 숫자값·D열 필터 분류는 선택입니다.")).toBeVisible();
-    await expect(page.getByText("C열 단위는 숫자 뒤에 붙는 표시입니다. 예: 만원, 건, 명")).toBeVisible();
-    await expect(page.getByLabel("C열 숫자값(선택)")).toBeVisible();
-    await expect(page.getByLabel("C열 단위(선택)")).toBeVisible();
-    await expect(page.getByLabel("D열 필터 분류(선택)")).toBeVisible();
+    await expect(page.getByText("여러 시트 중 사용할 시트를 선택할 수 있습니다.")).toBeVisible();
+    await expect(page.getByText("주소 역할로 연결한 열만 필수이고, 이름·대표값·분류는 선택입니다.")).toBeVisible();
+    await expect(page.getByText("대표값 단위는 숫자 뒤에 붙는 표시입니다. 예: 만원, 건, 명")).toBeVisible();
+    await expect(page.getByLabel("대표값 이름(선택)")).toBeVisible();
+    await expect(page.getByLabel("대표값 단위(선택)")).toBeVisible();
+    await expect(page.getByLabel("분류 표시 이름(선택)")).toBeVisible();
     await expect(page.getByRole("heading", { name: "엑셀 작성 예시" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "A열 주소" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "C열 숫자값" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "주소 열" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "대표값 열" })).toBeVisible();
     const exampleBox = await page.getByTestId("excel-example-card").boundingBox();
     expect(exampleBox?.width).toBeGreaterThan(560);
     await expect(page.getByText("이 행은 지도에서 예시복지관 위치 1개로 표시됩니다.")).toBeVisible();
-    await expect(page.getByText("업로드한 내용은 공개 지도에 그대로 표시됩니다.")).toBeVisible();
+    await expect(page.getByText("선택한 공개 열과 좌표 결과만 발행 시 지도에 표시됩니다.")).toBeVisible();
     await expect(page.getByText("개인정보나 민감정보가 들어 있는 열은 올리기 전에 제거하세요.")).toBeVisible();
     await expect(submit).toBeDisabled();
 
@@ -155,7 +155,8 @@ test.describe("public UI polish", () => {
     await page.getByLabel(/엑셀 파일/).setInputFiles(path.join(process.cwd(), "tests/fixtures/excel/bad_header.xlsx"));
 
     await expect(page.getByText("파일을 확인해 주세요")).toBeVisible();
-    await expect(page.getByText("A열 헤더는 '주소' 또는 '소재지' 같은 주소 컬럼이어야 합니다.")).toBeVisible();
+    await expect(page.getByText("미리보기")).toBeVisible();
+    await expect(page.getByText("표본과 헤더로 추천했지만, 실제 공개할 역할을 직접 확인하세요.")).toBeVisible();
     await expect(submit).toBeDisabled();
   });
 
@@ -218,13 +219,13 @@ test.describe("public UI polish", () => {
     await page.getByRole("button", { name: "지도 생성" }).click();
 
     await expect(page.getByRole("heading", { name: "지도가 생성되었습니다" })).toBeVisible();
-    await expect(page.getByText("공개 지도 링크는 외부에 공유해도 됩니다.")).toBeVisible();
+    await expect(page.getByText("비공개 범위에서는 공개 지도 화면에 접근할 수 없습니다.")).toBeVisible();
     await expect(page.getByText("관리 페이지와 관리 토큰은 내부에만 보관하세요.")).toBeVisible();
     await expect(page.getByRole("link", { name: "/m/sample-map" })).toBeVisible();
     await expect(page.getByRole("link", { name: "/manage/sample-map" })).toBeVisible();
     await expect(page.getByText("다음 단계")).toBeVisible();
-    await expect(page.getByText("1. 공개 지도 확인")).toBeVisible();
-    await expect(page.getByText("2. 공개 링크 공유")).toBeVisible();
+    await expect(page.getByText("1. 발행 범위 확인")).toBeVisible();
+    await expect(page.getByText("2. 링크·권한 관리")).toBeVisible();
     await expect(page.getByText("3. 관리 토큰 저장")).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });

@@ -11,7 +11,8 @@ import { detectSensitiveHeaders, sensitiveHeadersMessage } from "@/lib/upload/se
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_BYTES = 3 * 1024 * 1024;
+const configuredMaxBytes = Number(process.env.MAX_UPLOAD_BYTES);
+const MAX_FILE_BYTES = Number.isFinite(configuredMaxBytes) && configuredMaxBytes > 0 ? configuredMaxBytes : 3 * 1024 * 1024;
 const GEOCODE_CONCURRENCY = 8;
 
 interface UploadOk {
@@ -64,8 +65,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadOk | Up
   }
   if (file.size > MAX_FILE_BYTES) {
     return NextResponse.json(
-      { ok: false, error: { code: "FILE_TOO_LARGE", message: "파일 크기는 3MB를 초과할 수 없습니다." } },
+      { ok: false, error: { code: "FILE_TOO_LARGE", message: `파일 크기는 ${(MAX_FILE_BYTES / (1024 * 1024)).toFixed(1)}MB를 초과할 수 없습니다.` } },
       { status: 413 },
+    );
+  }
+  if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+    return NextResponse.json(
+      { ok: false, error: { code: "BAD_FILE_TYPE", message: "XLSX, XLS 또는 CSV 파일만 업로드할 수 있습니다." } },
+      { status: 400 },
     );
   }
 
@@ -176,6 +183,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadOk | Up
       value_unit: valueUnit,
       category_label: categoryLabel,
       is_listed: true,
+      visibility: "public",
+      published_at: new Date().toISOString(),
+      last_data_update_at: new Date().toISOString(),
       source_file: file.name,
       geocoder_stats: stats,
     })

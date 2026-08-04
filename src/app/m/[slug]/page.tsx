@@ -10,15 +10,15 @@ async function loadMap(slug: string): Promise<MapClientProps | null> {
   const sb = supabaseServer();
   const { data: map } = await sb
     .from("maps")
-    .select("id, title, description, value_label, value_unit, category_label, is_listed")
+    .select("id, title, description, value_label, value_unit, category_label, is_listed, visibility, source_name, source_url, data_as_of, owner_department, contact, license, refresh_cycle, next_review_at, published_at, last_data_update_at")
     .eq("slug", slug)
     .maybeSingle();
-  if (!map || !map.is_listed) return null;
+  if (!map || (map.visibility ? map.visibility === "private" : !map.is_listed)) return null;
 
-  const { data: markers } = await sb
-    .from("markers")
-    .select("id, lat, lng, name, value, category, address_normalized, extra")
-    .eq("map_id", map.id);
+  const [{ data: markers }, { data: failures }] = await Promise.all([
+    sb.from("markers").select("id, lat, lng, name, value, category, address_normalized, extra, quality_status, included").eq("map_id", map.id),
+    sb.from("geocode_failures").select("id").eq("map_id", map.id),
+  ]);
 
   return {
     slug,
@@ -27,7 +27,23 @@ async function loadMap(slug: string): Promise<MapClientProps | null> {
     valueLabel: map.value_label ?? null,
     valueUnit: map.value_unit ?? null,
     categoryLabel: map.category_label ?? null,
-    markers: (markers ?? []).map((m) => ({
+    visibility: map.visibility ?? (map.is_listed ? "public" : "private"),
+    sourceName: map.source_name ?? null,
+    sourceUrl: map.source_url ?? null,
+    dataAsOf: map.data_as_of ?? null,
+    ownerDepartment: map.owner_department ?? null,
+    contact: map.contact ?? null,
+    license: map.license ?? null,
+    refreshCycle: map.refresh_cycle ?? null,
+    nextReviewAt: map.next_review_at ?? null,
+    lastDataUpdateAt: map.last_data_update_at ?? null,
+    qualitySummary: {
+      total: (markers ?? []).length,
+      review: (markers ?? []).filter((marker) => marker.quality_status === "review").length,
+      excluded: (markers ?? []).filter((marker) => marker.included === false).length,
+      failed: failures?.length ?? 0,
+    },
+    markers: (markers ?? []).filter((m) => m.included !== false).map((m) => ({
       id: m.id,
       lat: m.lat,
       lng: m.lng,
@@ -45,10 +61,10 @@ export async function generateMetadata(props: PageProps<"/m/[slug]">): Promise<M
   const sb = supabaseServer();
   const { data } = await sb
     .from("maps")
-    .select("title, description, is_listed")
+    .select("title, description, is_listed, visibility")
     .eq("slug", slug)
     .maybeSingle();
-  if (!data || !data.is_listed) return { title: "지도 없음" };
+  if (!data || (data.visibility ? data.visibility === "private" : !data.is_listed)) return { title: "지도 없음" };
   return {
     title: `${data.title} · GonpunClaw PolicyMap`,
     description: data.description ?? undefined,
