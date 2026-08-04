@@ -23,6 +23,7 @@ export interface MapRow {
   metadata_confirmed_at: string | null;
   public_extra_columns: string[];
   column_mapping: Record<string, unknown>;
+  current_version_id: string | null;
   geocoder_stats: Record<string, number>;
   view_count: number;
   created_at: string;

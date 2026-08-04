@@ -12,6 +12,7 @@ export type AuditAction =
   | "upload_job.complete"
   | "upload_job.review"
   | "map.publish"
+  | "map.version_restore"
   | "admin.auth_fail"
   | "report.create"
   | "report.update";

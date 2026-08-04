@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { LngLatBounds, type Map as MLMap } from "maplibre-gl";
 import { MapView } from "@/components/map/MapView";
@@ -8,8 +8,12 @@ import { BoundaryLayer, type BoundaryLayerStatus, type BoundaryLevel } from "@/c
 import { MarkerLayer, type MarkerData } from "@/components/map/MarkerLayer";
 import { Filters } from "@/components/map/Filters";
 import { Legend } from "@/components/map/Legend";
+import { MapInsights } from "@/components/map/MapInsights";
+import { PolicyLayer, type PolicyLayerStatus, type PolicyRegionSelection } from "@/components/map/PolicyLayer";
 import { ReportForm } from "@/components/map/ReportForm";
 import { filterMarkersForDisplay } from "@/components/map/filterMarkers";
+import { pointInGeometry } from "@/lib/policy-layers/geometry";
+import { POPULATION_LAYER_META, regionTypeLabel } from "@/lib/policy-layers/population";
 
 async function copyText(text: string) {
   if (typeof navigator === "undefined" || !navigator.clipboard) return false;
@@ -57,6 +61,10 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
   const [showBoundaries, setShowBoundaries] = useState(false);
   const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>("sido");
   const [boundaryStatus, setBoundaryStatus] = useState<BoundaryLayerStatus>("idle");
+  const [showPolicyLayer, setShowPolicyLayer] = useState(false);
+  const [policyLayerStatus, setPolicyLayerStatus] = useState<PolicyLayerStatus>("idle");
+  const [selectedPolicyRegion, setSelectedPolicyRegion] = useState<PolicyRegionSelection | null>(null);
+  const [viewportBounds, setViewportBounds] = useState<[number, number, number, number] | null>(null);
 
   async function handleCopy() {
     const ok = await copyText(typeof window === "undefined" ? `/m/${slug}` : window.location.href);
@@ -81,12 +89,34 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
     return [Math.min(...values), Math.max(...values)];
   }, [markers]);
 
-  const filteredMarkers = useMemo(() => {
+  const baseFilteredMarkers = useMemo(() => {
     return filterMarkersForDisplay(markers, { selectedCategories, valueRange, searchQuery });
   }, [markers, searchQuery, selectedCategories, valueRange]);
 
+  const filteredMarkers = useMemo(() => {
+    if (!selectedPolicyRegion) return baseFilteredMarkers;
+    return baseFilteredMarkers.filter((marker) => pointInGeometry([marker.lng, marker.lat], selectedPolicyRegion.geometry));
+  }, [baseFilteredMarkers, selectedPolicyRegion]);
+
+  const viewportMarkers = useMemo(() => {
+    if (!viewportBounds) return filteredMarkers;
+    const [west, south, east, north] = viewportBounds;
+    return filteredMarkers.filter((marker) => marker.lng >= west && marker.lng <= east && marker.lat >= south && marker.lat <= north);
+  }, [filteredMarkers, viewportBounds]);
+
+  useEffect(() => {
+    if (!map) return;
+    const updateViewport = () => {
+      const bounds = map.getBounds();
+      setViewportBounds([bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]);
+    };
+    map.on("moveend", updateViewport);
+    updateViewport();
+    return () => { map.off("moveend", updateViewport); };
+  }, [map]);
+
   const searchResults = useMemo(() => filteredMarkers.slice(0, 8), [filteredMarkers]);
-  const hasActiveFilters = Boolean(searchQuery.trim() || selectedCategories || valueRange);
+  const hasActiveFilters = Boolean(searchQuery.trim() || selectedCategories || valueRange || selectedPolicyRegion);
   const boundaryLevelLabel = {
     sido: "광역시도",
     sigg: "시군구",
@@ -106,7 +136,20 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
     setSearchQuery("");
     setSelectedCategories(null);
     setValueRange(null);
+    setSelectedPolicyRegion(null);
   }
+
+  const handlePolicyRegionSelect = useCallback((selection: PolicyRegionSelection | null) => {
+    setSelectedPolicyRegion(selection);
+  }, []);
+
+  const policyLayerMessage = useMemo(() => {
+    if (!showPolicyLayer || policyLayerStatus === "idle") return "인구감소지역과 관심지역을 시군구 경계에 겹쳐 봅니다.";
+    if (policyLayerStatus === "loading") return "인구감소지역 기준 레이어를 불러오는 중입니다.";
+    if (policyLayerStatus === "unavailable") return "기준 레이어를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    if (selectedPolicyRegion) return `${selectedPolicyRegion.fullName} · ${regionTypeLabel(selectedPolicyRegion.regionType)}만 표시 중입니다.`;
+    return `${POPULATION_LAYER_META.regionCount}개 지역을 표시 중입니다. 지도에서 지역을 선택하면 해당 지역만 볼 수 있습니다.`;
+  }, [policyLayerStatus, selectedPolicyRegion, showPolicyLayer]);
 
   function handleResetView() {
     if (!map || filteredMarkers.length === 0) return;
@@ -324,6 +367,43 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           </div>
 
           <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">정책 기준 레이어</h3>
+                <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{policyLayerMessage}</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={showPolicyLayer}
+                onChange={(event) => {
+                  setShowPolicyLayer(event.target.checked);
+                  if (!event.target.checked) setSelectedPolicyRegion(null);
+                }}
+                className="mt-1 h-4 w-4 accent-blue-700"
+                aria-label="인구감소지역 기준 레이어 표시"
+              />
+            </div>
+            {showPolicyLayer && (
+              <div className="mt-3 space-y-2 text-xs">
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-red-800 dark:bg-red-950 dark:text-red-200"><span className="h-2 w-2 rounded-full bg-red-600" />인구감소지역 89</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-amber-800 dark:bg-amber-950 dark:text-amber-200"><span className="h-2 w-2 rounded-full bg-amber-500" />관심지역 18</span>
+                </div>
+                {selectedPolicyRegion && (
+                  <button type="button" onClick={() => setSelectedPolicyRegion(null)} className="font-semibold text-blue-700 hover:underline dark:text-blue-400">선택 지역 초기화</button>
+                )}
+                <p className="text-zinc-500 dark:text-zinc-400">출처: {POPULATION_LAYER_META.sourceName} · 기준일 {POPULATION_LAYER_META.dataAsOf}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <a href={POPULATION_LAYER_META.sourceUrls.decline} target="_blank" rel="noreferrer" className="underline hover:text-zinc-900 dark:hover:text-zinc-100">인구감소지역 고시</a>
+                  <a href={POPULATION_LAYER_META.sourceUrls.interest} target="_blank" rel="noreferrer" className="underline hover:text-zinc-900 dark:hover:text-zinc-100">관심지역 고시</a>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <MapInsights filteredMarkers={filteredMarkers} viewportMarkers={viewportMarkers} valueLabel={valueLabel} valueUnit={valueUnit} />
+
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <h3 className="text-sm font-semibold">범례</h3>
             <div className="mt-2">
               <Legend categories={categoryBuckets.map((c) => c.name)} valueLabel={valueLabel} />
@@ -400,6 +480,13 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                 enabled={showBoundaries}
                 level={boundaryLevel}
                 onStatusChange={setBoundaryStatus}
+              />
+              <PolicyLayer
+                map={map}
+                enabled={showPolicyLayer}
+                selectedCode={selectedPolicyRegion?.code ?? null}
+                onSelect={handlePolicyRegionSelect}
+                onStatusChange={setPolicyLayerStatus}
               />
               <MarkerLayer
                 map={map}

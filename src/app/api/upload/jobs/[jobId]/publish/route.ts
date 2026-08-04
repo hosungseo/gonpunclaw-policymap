@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { verifyUploadJobToken } from "@/lib/upload/job-token";
 import { metadataValidationErrors, normalizeNullable, normalizeVisibility, mapVisibilityToListed } from "@/lib/maps/metadata";
 import { recordAudit } from "@/lib/audit";
+import { tryCaptureMapVersion } from "@/lib/versions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,6 +79,7 @@ export async function POST(req: Request, context: { params: Promise<{ jobId: str
   if (updateError || !updatedMap) return error("PUBLISH_FAILED", updateError?.message ?? "지도 발행에 실패했습니다.", 500);
 
   await sb.from("upload_jobs").update({ review_confirmed_at: reviewConfirmed ? now : null, publish_confirmed_at: now, updated_at: now }).eq("id", job.id);
-  await recordAudit({ action: "map.publish", mapId: job.map_id, req, details: { slug: job.slug, visibility, review_confirmed: reviewConfirmed, source_confirmed: sourceConfirmed, as_of_confirmed: asOfConfirmed, sensitive_confirmed: sensitiveConfirmed, included_review_count: includedReviewCount, failed_count: job.failed_count ?? 0 } });
+  const version = await tryCaptureMapVersion({ mapId: job.map_id, reason: "초기 지도 발행", actorToken: token });
+  await recordAudit({ action: "map.publish", mapId: job.map_id, req, details: { slug: job.slug, visibility, review_confirmed: reviewConfirmed, source_confirmed: sourceConfirmed, as_of_confirmed: asOfConfirmed, sensitive_confirmed: sensitiveConfirmed, included_review_count: includedReviewCount, failed_count: job.failed_count ?? 0, version_number: version?.version_number ?? null } });
   return NextResponse.json({ ok: true, map: updatedMap, public_url: `/m/${job.slug}`, manage_url: `/manage/${job.slug}` });
 }

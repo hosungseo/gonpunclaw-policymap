@@ -321,6 +321,9 @@ function EditSection({ slug, initial, token }: { slug: string; initial: ManagedM
         <Link href={`/m/${slug}`} className="inline-flex items-center justify-center rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200">
           공개 지도 보기
         </Link>
+        <Link href={`/manage/${slug}/versions`} className="inline-flex items-center justify-center rounded border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950">
+          버전·변경점
+        </Link>
       </div>
     </form>
   );

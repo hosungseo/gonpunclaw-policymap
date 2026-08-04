@@ -7,6 +7,7 @@ import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
 import { geocodeParsedRows } from "@/lib/upload/geocode-rows";
 import { scanSensitiveData, sensitiveFindingsMessage } from "@/lib/upload/sensitive";
+import { tryCaptureMapVersion } from "@/lib/versions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,6 +128,9 @@ export async function POST(
     return jsonError("ALL_GEOCODE_FAILED", "모든 주소의 지오코딩에 실패했습니다. API 키와 주소 형식을 확인해 주세요.", 422);
   }
 
+  // Preserve the pre-replacement state before destructive marker replacement.
+  const previousVersion = await tryCaptureMapVersion({ mapId: auth.mapId, reason: "데이터 교체 전 보관", actorToken: token });
+
   const { error: oldFailuresErr } = await sb.from("geocode_failures").delete().eq("map_id", auth.mapId);
   if (oldFailuresErr) {
     return jsonError("DELETE_OLD_FAILURES", oldFailuresErr.message, 500);
@@ -174,6 +178,8 @@ export async function POST(
     return jsonError("UPDATE_MAP_FAILED", mapUpdateErr.message, 500);
   }
 
+  const version = await tryCaptureMapVersion({ mapId: auth.mapId, reason: "데이터 교체", actorToken: token });
+
   await recordAudit({
     action: "map.replace_data",
     mapId: auth.mapId,
@@ -184,6 +190,8 @@ export async function POST(
       inserted: result.successes.length,
       failed: result.failures.length,
       geocoder_stats: result.stats,
+      previous_version_number: previousVersion?.version_number ?? null,
+      version_number: version?.version_number ?? null,
     },
   });
 

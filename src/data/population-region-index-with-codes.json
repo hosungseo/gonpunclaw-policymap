@@ -1,0 +1,866 @@
+{
+  "summary": {
+    "total": 107,
+    "matched": 107,
+    "unmatched": 0
+  },
+  "regions": [
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "고성군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51820"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "삼척시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51230"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "양구군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51800"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "양양군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51830"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "영월군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51750"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "정선군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51770"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "철원군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51780"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "태백시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51190"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "평창군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51760"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "홍천군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51720"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "화천군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51790"
+    },
+    {
+      "province": "강원",
+      "normalizedProvince": "강원특별자치도",
+      "name": "횡성군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "51730"
+    },
+    {
+      "province": "강원특별자치도",
+      "normalizedProvince": "강원특별자치도",
+      "name": "강릉시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "51150"
+    },
+    {
+      "province": "강원특별자치도",
+      "normalizedProvince": "강원특별자치도",
+      "name": "동해시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "51170"
+    },
+    {
+      "province": "강원특별자치도",
+      "normalizedProvince": "강원특별자치도",
+      "name": "속초시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "51210"
+    },
+    {
+      "province": "강원특별자치도",
+      "normalizedProvince": "강원특별자치도",
+      "name": "인제군",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "51810"
+    },
+    {
+      "province": "경기",
+      "normalizedProvince": "경기도",
+      "name": "가평군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "41820"
+    },
+    {
+      "province": "경기",
+      "normalizedProvince": "경기도",
+      "name": "연천군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "41800"
+    },
+    {
+      "province": "경기도",
+      "normalizedProvince": "경기도",
+      "name": "동두천시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "41250"
+    },
+    {
+      "province": "경기도",
+      "normalizedProvince": "경기도",
+      "name": "포천시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "41650"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "거창군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48880"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "고성군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48820"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "남해군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48840"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "밀양시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48270"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "산청군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48860"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "의령군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48720"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "창녕군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48740"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "하동군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48850"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "함안군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48730"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "함양군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48870"
+    },
+    {
+      "province": "경남",
+      "normalizedProvince": "경상남도",
+      "name": "합천군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "48890"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "고령군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47830"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "문경시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47250"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "봉화군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47920"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "상주시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47230"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "성주군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47840"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "안동시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47170"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "영덕군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47770"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "영양군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47760"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "영주시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47210"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "영천시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47220"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "울릉군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47940"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "울진군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47930"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "의성군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47730"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "청도군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47820"
+    },
+    {
+      "province": "경북",
+      "normalizedProvince": "경상북도",
+      "name": "청송군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "47750"
+    },
+    {
+      "province": "경상남도",
+      "normalizedProvince": "경상남도",
+      "name": "사천시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "48240"
+    },
+    {
+      "province": "경상남도",
+      "normalizedProvince": "경상남도",
+      "name": "통영시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "48220"
+    },
+    {
+      "province": "경상북도",
+      "normalizedProvince": "경상북도",
+      "name": "경주시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "47130"
+    },
+    {
+      "province": "경상북도",
+      "normalizedProvince": "경상북도",
+      "name": "김천시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "47150"
+    },
+    {
+      "province": "광주광역시",
+      "normalizedProvince": "광주광역시",
+      "name": "동구",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "29110"
+    },
+    {
+      "province": "대구",
+      "normalizedProvince": "대구광역시",
+      "name": "군위군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "27720"
+    },
+    {
+      "province": "대구",
+      "normalizedProvince": "대구광역시",
+      "name": "남구",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "27200"
+    },
+    {
+      "province": "대구",
+      "normalizedProvince": "대구광역시",
+      "name": "서구",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "27170"
+    },
+    {
+      "province": "대전광역시",
+      "normalizedProvince": "대전광역시",
+      "name": "대덕구",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "30230"
+    },
+    {
+      "province": "대전광역시",
+      "normalizedProvince": "대전광역시",
+      "name": "동구",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "30110"
+    },
+    {
+      "province": "대전광역시",
+      "normalizedProvince": "대전광역시",
+      "name": "중구",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "30140"
+    },
+    {
+      "province": "부산",
+      "normalizedProvince": "부산광역시",
+      "name": "동구",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "26170"
+    },
+    {
+      "province": "부산",
+      "normalizedProvince": "부산광역시",
+      "name": "서구",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "26140"
+    },
+    {
+      "province": "부산",
+      "normalizedProvince": "부산광역시",
+      "name": "영도구",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "26200"
+    },
+    {
+      "province": "부산광역시",
+      "normalizedProvince": "부산광역시",
+      "name": "금정구",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "26410"
+    },
+    {
+      "province": "부산광역시",
+      "normalizedProvince": "부산광역시",
+      "name": "중구",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "26110"
+    },
+    {
+      "province": "인천",
+      "normalizedProvince": "인천광역시",
+      "name": "강화군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "28710"
+    },
+    {
+      "province": "인천",
+      "normalizedProvince": "인천광역시",
+      "name": "옹진군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "28720"
+    },
+    {
+      "province": "인천광역시",
+      "normalizedProvince": "인천광역시",
+      "name": "동구",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "28140"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "강진군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46810"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "고흥군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46770"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "곡성군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46720"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "구례군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46730"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "담양군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46710"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "보성군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46780"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "신안군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46910"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "영광군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46870"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "영암군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46830"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "완도군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46890"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "장성군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46880"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "장흥군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46800"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "진도군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46900"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "함평군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46860"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "해남군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46820"
+    },
+    {
+      "province": "전남",
+      "normalizedProvince": "전라남도",
+      "name": "화순군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "46790"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "고창군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52790"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "김제시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52210"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "남원시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52190"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "무주군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52730"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "부안군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52800"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "순창군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52770"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "임실군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52750"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "장수군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52740"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "정읍시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52180"
+    },
+    {
+      "province": "전북",
+      "normalizedProvince": "전북특별자치도",
+      "name": "진안군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "52720"
+    },
+    {
+      "province": "전북특별자치도",
+      "normalizedProvince": "전북특별자치도",
+      "name": "익산시",
+      "regionType": "interest",
+      "sourceNotice": "2025-78",
+      "lawdCd": "52140"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "공주시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44150"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "금산군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44710"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "논산시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44230"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "보령시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44180"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "부여군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44760"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "서천군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44770"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "예산군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44810"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "청양군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44790"
+    },
+    {
+      "province": "충남",
+      "normalizedProvince": "충청남도",
+      "name": "태안군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "44825"
+    },
+    {
+      "province": "충북",
+      "normalizedProvince": "충청북도",
+      "name": "괴산군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "43760"
+    },
+    {
+      "province": "충북",
+      "normalizedProvince": "충청북도",
+      "name": "단양군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "43800"
+    },
+    {
+      "province": "충북",
+      "normalizedProvince": "충청북도",
+      "name": "보은군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "43720"
+    },
+    {
+      "province": "충북",
+      "normalizedProvince": "충청북도",
+      "name": "영동군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "43740"
+    },
+    {
+      "province": "충북",
+      "normalizedProvince": "충청북도",
+      "name": "옥천군",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "43730"
+    },
+    {
+      "province": "충북",
+      "normalizedProvince": "충청북도",
+      "name": "제천시",
+      "regionType": "decline",
+      "sourceNotice": "2024-15",
+      "lawdCd": "43150"
+    }
+  ],
+  "unmatched": []
+}

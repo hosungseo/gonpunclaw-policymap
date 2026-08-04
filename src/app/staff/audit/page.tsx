@@ -18,6 +18,7 @@ const AUDIT_ACTIONS = [
   "map.create",
   "map.update",
   "map.replace_data",
+  "map.version_restore",
   "map.delete",
   "upload_job.create",
   "upload_job.complete",
