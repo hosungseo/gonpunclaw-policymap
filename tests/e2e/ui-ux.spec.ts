@@ -11,15 +11,23 @@ test.describe("public UI polish", () => {
   test("landing page keeps primary actions visible without horizontal overflow", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: /엑셀 주소 목록/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /엑셀 취합본/ })).toBeVisible();
     await expect(page.getByText("업무 흐름 그대로")).toBeVisible();
+    await expect(page.getByText("집행률 50% 미만", { exact: true })).toBeVisible();
+    await expect(page.getByText("내부 관리 링크 분리")).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "지도 보기 전환" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "저집행 사업 18건을 먼저 봅니다." })).toBeVisible();
+    await page.getByText("주소 검수", { exact: true }).click();
+    await expect(page.getByRole("heading", { name: "좌표 보완 9건을 분리합니다." })).toBeVisible();
+    await page.getByText("업데이트", { exact: true }).click();
+    await expect(page.getByRole("heading", { name: "3월말 취합본 v4 기준입니다." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "데이터 준비", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "지도 검토", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "운영 관리", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "지도 만들기" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "샘플 지도 보기" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /취합본 업로드/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "실무 보드 미리보기" })).toBeVisible();
     await expect(page.getByRole("link", { name: "엑셀 템플릿 받기" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "사용법 보기" })).toHaveAttribute("href", "/guide");
+    await expect(page.getByRole("link", { name: "사용법 보기", exact: true })).toHaveAttribute("href", "/guide");
     await expectNoHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -232,7 +240,7 @@ test.describe("public UI polish", () => {
 
   test("demo map shows a sample result without uploading", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "샘플 지도 보기" }).click();
+    await page.getByRole("link", { name: "실무 보드 미리보기" }).click();
 
     await expect(page).toHaveURL(/\/demo$/);
     await expect(page.getByRole("heading", { name: "샘플 정책지도" })).toBeVisible();
