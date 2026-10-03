@@ -14,6 +14,7 @@ function jsonError(code: string, message: string, status: number) {
   return NextResponse.json<ErrPayload>({ ok: false, error: { code, message } }, { status });
 }
 
+// Checkbox "on" is intentionally rejected: the staff page submits a hidden "0"/"1" input.
 function parseHidden(raw: unknown): boolean | null {
   if (typeof raw === "boolean") return raw;
   if (raw === "1" || raw === "true") return true;
@@ -21,9 +22,17 @@ function parseHidden(raw: unknown): boolean | null {
   return null;
 }
 
-function sanitizeReturnTarget(raw: unknown): string {
-  if (typeof raw !== "string" || !raw.trim().startsWith("/staff/")) return "/staff/reports";
-  return raw.trim();
+// Validate the resolved URL rather than the raw string so encoded traversal or absolute URLs cannot escape /staff/.
+function sanitizeReturnTarget(raw: unknown, baseUrl: string): string {
+  const fallback = "/staff/reports";
+  if (typeof raw !== "string") return fallback;
+  try {
+    const url = new URL(raw.trim(), baseUrl);
+    if (url.origin !== new URL(baseUrl).origin || !url.pathname.startsWith("/staff/")) return fallback;
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return fallback;
+  }
 }
 
 async function parseBody(req: NextRequest) {
@@ -34,7 +43,7 @@ async function parseBody(req: NextRequest) {
       mapId: typeof form.get("map_id") === "string" ? String(form.get("map_id")).trim() : "",
       hidden: parseHidden(form.get("hidden")),
       reason: typeof form.get("reason") === "string" ? String(form.get("reason")).trim().slice(0, REASON_MAX) : "",
-      returnTo: sanitizeReturnTarget(form.get("return_to")),
+      returnTo: sanitizeReturnTarget(form.get("return_to"), req.url),
       isForm: true,
     };
   }
@@ -43,7 +52,7 @@ async function parseBody(req: NextRequest) {
     mapId: typeof body?.map_id === "string" ? body.map_id.trim() : "",
     hidden: parseHidden(body?.hidden),
     reason: typeof body?.reason === "string" ? body.reason.trim().slice(0, REASON_MAX) : "",
-    returnTo: sanitizeReturnTarget(body?.return_to),
+    returnTo: sanitizeReturnTarget(body?.return_to, req.url),
     isForm: false,
   };
 }
@@ -72,7 +81,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     action: hidden ? "map.directory_hide" : "map.directory_show",
     mapId,
     req,
-    details: { slug: map.slug, reason: hidden ? reason : null, was_hidden: Boolean(map.directory_hidden) },
+    details: { slug: map.slug, reason: hidden ? reason || null : null, was_hidden: Boolean(map.directory_hidden) },
   });
 
   if (isForm) return NextResponse.redirect(new URL(returnTo, req.url), { status: 303 });

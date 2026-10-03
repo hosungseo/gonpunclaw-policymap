@@ -68,6 +68,45 @@ describe("POST /api/staff/maps/directory", () => {
     expect(mockRecordAudit.mock.calls[0][0].action).toBe("map.directory_show");
   });
 
+  it("rejects a non-boolean hidden value", async () => {
+    mockIsAuthed.mockResolvedValue(true);
+    const { POST } = await import("@/app/api/staff/maps/directory/route");
+    const res = await POST(new Request("http://localhost/api/staff/maps/directory", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ map_id: "m1", hidden: "maybe" }) }) as unknown as NextRequest);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("BAD_HIDDEN");
+    expect(mockLookup).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing map_id", async () => {
+    mockIsAuthed.mockResolvedValue(true);
+    const { POST } = await import("@/app/api/staff/maps/directory/route");
+    const res = await POST(formReq({ hidden: "1" }));
+    expect(res.status).toBe(400);
+    expect(mockLookup).not.toHaveBeenCalled();
+  });
+
+  it.each(["/evil", "/staff/%2e%2e/x", "https://attacker.example/staff/reports", "//attacker.example/staff/reports"])(
+    "falls back to /staff/reports for return_to %s",
+    async (returnTo) => {
+      mockIsAuthed.mockResolvedValue(true);
+      mockLookup.mockResolvedValue({ data: { id: "m1", slug: "abc", directory_hidden: false } });
+      const { POST } = await import("@/app/api/staff/maps/directory/route");
+      const res = await POST(formReq({ map_id: "m1", hidden: "1", return_to: returnTo }));
+      expect(res.status).toBe(303);
+      expect(res.headers.get("location")).toBe("http://localhost/staff/reports");
+    },
+  );
+
+  it("preserves a same-origin /staff/ return_to with its query", async () => {
+    mockIsAuthed.mockResolvedValue(true);
+    mockLookup.mockResolvedValue({ data: { id: "m1", slug: "abc", directory_hidden: false } });
+    const { POST } = await import("@/app/api/staff/maps/directory/route");
+    const res = await POST(formReq({ map_id: "m1", hidden: "1", return_to: "/staff/reports?status=pending" }));
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("http://localhost/staff/reports?status=pending");
+  });
+
   it("returns 404 for unknown maps", async () => {
     mockIsAuthed.mockResolvedValue(true);
     mockLookup.mockResolvedValue({ data: null });

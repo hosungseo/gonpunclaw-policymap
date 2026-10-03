@@ -5,12 +5,15 @@ vi.mock("@/lib/supabase/server", () => ({
     from: () => ({
       select: () => ({
         or: () => ({
-          order: () => ({
-            limit: () => Promise.resolve({
-              data: [
-                { slug: "shown", updated_at: "2026-01-01T00:00:00Z", visibility: "public", is_listed: true, directory_hidden: false },
-                { slug: "hidden", updated_at: "2026-01-01T00:00:00Z", visibility: "public", is_listed: true, directory_hidden: true },
-              ],
+          // The real query already excludes hidden rows; the mock still returns one so the client-side guard is exercised.
+          eq: () => ({
+            order: () => ({
+              limit: () => Promise.resolve({
+                data: [
+                  { slug: "shown", updated_at: "2026-01-01T00:00:00Z", visibility: "public", is_listed: true, directory_hidden: false },
+                  { slug: "hidden", updated_at: "2026-01-01T00:00:00Z", visibility: "public", is_listed: true, directory_hidden: true },
+                ],
+              }),
             }),
           }),
         }),

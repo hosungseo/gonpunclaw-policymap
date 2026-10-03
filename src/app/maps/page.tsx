@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { queryDirectory, type DirectoryPage } from "@/lib/directory/query";
+import { queryDirectory, sanitizeDirectoryQuery, type DirectoryPage } from "@/lib/directory/query";
+import { formatKoreanDate } from "@/lib/maps/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -23,22 +24,19 @@ function pageHref(q: string, page: number): string {
   return qs ? `/maps?${qs}` : "/maps";
 }
 
-function formatDate(value: string | null): string | null {
-  if (!value) return null;
-  return value.length === 10 ? value : new Date(value).toLocaleDateString("ko-KR");
-}
+type Loaded = { ok: true; result: DirectoryPage } | { ok: false };
 
 export default async function DirectoryPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const q = first(sp.q).slice(0, 80);
+  // The query layer strips filter-breaking characters; echo that version so the count line matches what was searched.
+  const searchTerm = sanitizeDirectoryQuery(q);
   const page = Number.parseInt(first(sp.page) || "1", 10) || 1;
-  let result: DirectoryPage | null = null;
-  let loadError = false;
-  try {
-    result = await queryDirectory({ q, page });
-  } catch {
-    loadError = true;
-  }
+  const loaded: Loaded = await queryDirectory({ q, page })
+    .then((result) => ({ ok: true as const, result }))
+    .catch(() => ({ ok: false as const }));
+  const result = loaded.ok ? loaded.result : null;
+  const loadError = !loaded.ok;
 
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
@@ -79,7 +77,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
         {result && (
           <>
             <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-              {q ? `‘${q}’ 검색 결과 ` : ""}{result.total.toLocaleString()}개 · {result.page}/{result.totalPages} 페이지
+              {searchTerm ? `‘${searchTerm}’ 검색 결과 ` : ""}{result.total.toLocaleString()}개 · {result.page}/{result.totalPages} 페이지
             </p>
 
             {result.entries.length === 0 ? (
@@ -92,9 +90,9 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
               <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {result.entries.map((entry) => (
                   <li key={entry.slug}>
-                    <Link href={`/m/${entry.slug}`} className="flex h-full flex-col rounded-xl border border-zinc-200 bg-white p-5 transition hover:border-blue-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-800">
+                    <Link href={`/m/${entry.slug}`} aria-labelledby={`map-${entry.slug}`} className="flex h-full flex-col rounded-xl border border-zinc-200 bg-white p-5 transition hover:border-blue-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-800">
                       <div className="flex items-start justify-between gap-2">
-                        <h2 className="text-base font-semibold leading-6">{entry.title}</h2>
+                        <h2 id={`map-${entry.slug}`} className="min-w-0 break-words text-base font-semibold leading-6">{entry.title}</h2>
                         {entry.reviewed && <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">검토 완료</span>}
                       </div>
                       {entry.description && <p className="mt-2 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-300">{entry.description}</p>}
@@ -103,7 +101,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
                         {entry.source_name && (<><dt>출처</dt><dd className="truncate text-right">{entry.source_name}</dd></>)}
                         {entry.data_as_of && (<><dt>기준일</dt><dd className="text-right">{entry.data_as_of}</dd></>)}
                         {entry.owner_department && (<><dt>관리</dt><dd className="truncate text-right">{entry.owner_department}</dd></>)}
-                        {formatDate(entry.last_data_update_at ?? entry.published_at) && (<><dt>갱신</dt><dd className="text-right">{formatDate(entry.last_data_update_at ?? entry.published_at)}</dd></>)}
+                        {formatKoreanDate(entry.last_data_update_at ?? entry.published_at) && (<><dt>갱신</dt><dd className="text-right">{formatKoreanDate(entry.last_data_update_at ?? entry.published_at)}</dd></>)}
                       </dl>
                     </Link>
                   </li>

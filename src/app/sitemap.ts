@@ -27,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
   try {
-    const { data: maps } = await supabaseServer().from("maps").select("slug, updated_at, visibility, is_listed, directory_hidden").or("visibility.eq.public,is_listed.eq.true").order("updated_at", { ascending: false }).limit(5000);
+    const { data: maps } = await supabaseServer().from("maps").select("slug, updated_at, visibility, is_listed, directory_hidden").or("visibility.eq.public,is_listed.eq.true").eq("directory_hidden", false).order("updated_at", { ascending: false }).limit(5000);
     return [...base, ...(maps ?? []).filter((map) => (map.visibility ? map.visibility === "public" : map.is_listed) && !map.directory_hidden).map((map) => ({ url: `${baseUrl}/m/${map.slug}`, lastModified: map.updated_at ? new Date(map.updated_at) : now, changeFrequency: "weekly" as const, priority: 0.7 }))];
   } catch {
     return base;

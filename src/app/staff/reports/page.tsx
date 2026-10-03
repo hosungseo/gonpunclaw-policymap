@@ -315,7 +315,10 @@ function ReportRowView({ row, returnTo }: { row: ReportRow; returnTo: string }) 
           <span className="font-mono text-zinc-500">{row.map_id ?? "—"}</span>
         )}
         {row.map?.slug && <p className="mt-1 font-mono text-[11px] text-zinc-500">{row.map.slug}</p>}
-        {row.map?.slug && row.map_id && (
+        {row.map?.slug && row.map_id && row.map.visibility !== "public" && (
+          <p className="mt-2 text-[11px] text-zinc-500">비공개/링크공개 — 디렉터리 대상 아님</p>
+        )}
+        {row.map?.slug && row.map_id && row.map.visibility === "public" && (
           <form method="POST" action="/api/staff/maps/directory" className="mt-2 flex flex-wrap items-center gap-1">
             <input type="hidden" name="map_id" value={row.map_id} />
             <input type="hidden" name="return_to" value={returnTo} />
@@ -323,6 +326,7 @@ function ReportRowView({ row, returnTo }: { row: ReportRow; returnTo: string }) 
             {!row.map.directory_hidden && (
               <input
                 name="reason"
+                aria-label="숨김 사유"
                 placeholder="숨김 사유"
                 maxLength={300}
                 className="w-32 rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] dark:border-zinc-700 dark:bg-zinc-900"
