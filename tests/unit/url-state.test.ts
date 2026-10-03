@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_MAP_URL_STATE, parseMapUrlState, serializeMapUrlState, toUrlSearchParams } from "@/lib/share/url-state";
+import { EMPTY_MAP_URL_STATE, parseMapUrlState, parseMapUrlStateFromSearchParams, serializeMapUrlState, toUrlSearchParams } from "@/lib/share/url-state";
 
 describe("map url state codec", () => {
   it("serializes an empty state to an empty string", () => {
@@ -73,5 +73,13 @@ describe("map url state codec", () => {
     expect(params.get("q")).toBe("서초");
     expect(params.has("skip")).toBe(false);
     expect(parseMapUrlState(params, { categories: ["복지"] }).categories).toEqual(["복지"]);
+  });
+
+  it("parses page searchParams against the categories present in the markers", () => {
+    const markers = [{ category: "복지" }, { category: "복지" }, { category: null }];
+    const state = parseMapUrlStateFromSearchParams({ cat: ["복지", "청년"], q: "서초", view: "table" }, markers);
+    expect(state.categories).toEqual(["복지"]);
+    expect(state.query).toBe("서초");
+    expect(state.view).toBe("table");
   });
 });

@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Embeds are meant to be framed by third-party sites.
+        source: "/embed/:slug*",
+        headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
+      },
     ];
   },
 };

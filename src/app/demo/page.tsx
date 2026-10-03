@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { MapClient } from "../m/[slug]/MapClient";
 import type { MarkerData } from "@/components/map/MarkerLayer";
-import { parseMapUrlState, toUrlSearchParams } from "@/lib/share/url-state";
+import { parseMapUrlStateFromSearchParams } from "@/lib/share/url-state";
 
 export const metadata: Metadata = {
   title: "샘플 정책지도 · GonpunClaw PolicyMap",
@@ -61,11 +61,8 @@ const SAMPLE_MARKERS: MarkerData[] = [
   },
 ];
 
-const SAMPLE_CATEGORIES = Array.from(new Set(SAMPLE_MARKERS.map((m) => m.category).filter((c): c is string => Boolean(c))));
-
 export default async function DemoPage(props: PageProps<"/demo">) {
-  const searchParams = await props.searchParams;
-  const initialUrlState = parseMapUrlState(toUrlSearchParams(searchParams), { categories: SAMPLE_CATEGORIES });
+  const initialUrlState = parseMapUrlStateFromSearchParams(await props.searchParams, SAMPLE_MARKERS);
   return (
     <MapClient
       slug="demo"

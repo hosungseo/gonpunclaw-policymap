@@ -45,6 +45,18 @@ export function toUrlSearchParams(input: Record<string, string | string[] | unde
   return params;
 }
 
+/**
+ * Server-side convenience for pages: parses Next.js `searchParams` against the categories
+ * actually present in the map's markers so unknown categories are dropped.
+ */
+export function parseMapUrlStateFromSearchParams(
+  searchParams: Record<string, string | string[] | undefined>,
+  markers: Array<{ category: string | null }>,
+): MapUrlState {
+  const categories = Array.from(new Set(markers.map((m) => m.category).filter((c): c is string => Boolean(c))));
+  return parseMapUrlState(toUrlSearchParams(searchParams), { categories });
+}
+
 export function parseMapUrlState(input: string | URLSearchParams, known?: { categories?: string[] }): MapUrlState {
   const params = typeof input === "string" ? new URLSearchParams(input.replace(/^\?/, "")) : input;
   const state: MapUrlState = { ...EMPTY_MAP_URL_STATE };

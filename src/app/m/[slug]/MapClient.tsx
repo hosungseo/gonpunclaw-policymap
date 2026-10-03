@@ -57,11 +57,14 @@ export interface MapClientProps {
   isDemo?: boolean;
   /** Filter state parsed from the request URL on the server (shared links, embeds). */
   initialUrlState?: MapUrlState;
+  reviewBadge?: { status: "approved" | "pending"; versionNumber: number | null; decidedAt: string | null } | null;
+  /** Compact chrome for iframe embedding and the reviewer preview. */
+  embed?: boolean;
 }
 
 type ViewMode = "map" | "table";
 
-export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateAt, qualitySummary, markers, isDemo = false, initialUrlState }: MapClientProps) {
+export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateAt, qualitySummary, markers, isDemo = false, initialUrlState, reviewBadge = null, embed = false }: MapClientProps) {
   const [map, setMap] = useState<MLMap | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(() => (initialUrlState?.categories ? new Set(initialUrlState.categories) : null));
   const [valueRange, setValueRange] = useState<[number, number] | null>(() => clampValueRange(initialUrlState?.valueRange, computeBaseValueRange(markers)));
@@ -220,12 +223,22 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
     map.flyTo({ center: [marker.lng, marker.lat], zoom: 13, essential: true });
   }
 
+  // In embed mode the tools panel always floats over the map (no desktop sidebar column).
+  const asideFloating = showMobileTools
+    ? "absolute inset-x-3 top-[64px] z-20 max-h-[calc(100dvh-140px)] rounded-xl border shadow-xl"
+    : "hidden";
+  const asideClass = embed
+    ? `order-2 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950 ${asideFloating}`
+    : `order-2 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950 md:static md:order-1 md:block md:max-h-none md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:shadow-none ${showMobileTools ? "absolute inset-x-3 top-[96px] z-20 max-h-[calc(100dvh-180px)] rounded-xl border shadow-xl" : "hidden"}`;
+
   return (
     <div className="flex h-dvh flex-col bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
       <header className="flex min-h-[72px] items-center gap-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <Link href="/" className="shrink-0 text-sm font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100">
-          ← 처음
-        </Link>
+        {!embed && (
+          <Link href="/" className="shrink-0 text-sm font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100">
+            ← 처음
+          </Link>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-base font-semibold">{title}</h1>
@@ -243,52 +256,64 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           )}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             <span>{visibility === "unlisted" ? "링크 보유자 공개" : "공개 지도"}</span>
+            {reviewBadge?.status === "approved" && (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                검토 완료{reviewBadge.versionNumber ? ` · v${reviewBadge.versionNumber}` : ""}{reviewBadge.decidedAt ? ` · ${new Date(reviewBadge.decidedAt).toLocaleDateString("ko-KR")}` : ""}
+              </span>
+            )}
+            {reviewBadge?.status === "pending" && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">검토 대기</span>
+            )}
             {sourceName && <span>출처: {sourceName}</span>}
             {dataAsOf && <span>기준일: {dataAsOf}</span>}
             {ownerDepartment && <span>관리: {ownerDepartment}</span>}
             {lastDataUpdateAt && <span>갱신: {new Date(lastDataUpdateAt).toLocaleDateString("ko-KR")}</span>}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden rounded-lg border border-zinc-300 bg-zinc-50 p-0.5 text-xs md:flex dark:border-zinc-700 dark:bg-zinc-900">
-            <button
-              type="button"
-              onClick={() => setViewMode("map")}
-              className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "map" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
-            >
-              지도
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "table" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
-            >
-              표
-            </button>
+        {!embed && (
+          <div className="flex items-center gap-2">
+            <div className="hidden rounded-lg border border-zinc-300 bg-zinc-50 p-0.5 text-xs md:flex dark:border-zinc-700 dark:bg-zinc-900">
+              <button
+                type="button"
+                onClick={() => setViewMode("map")}
+                className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "map" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
+              >
+                지도
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "table" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
+              >
+                표
+              </button>
+            </div>
+            <SharePanel slug={slug} title={title} search={currentSearch} apiAvailable={!isDemo && visibility !== "private"} />
           </div>
-          <SharePanel slug={slug} title={title} search={currentSearch} apiAvailable={!isDemo && visibility !== "private"} />
-        </div>
+        )}
       </header>
 
-      <div className="border-b border-zinc-200 bg-white px-4 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="font-semibold text-zinc-800 dark:text-zinc-200">데이터 품질</span>
-          <span>표시 {markers.length.toLocaleString()}건</span>
-          {qualitySummary?.review ? <span className="text-amber-700 dark:text-amber-300">검수 필요 {qualitySummary.review.toLocaleString()}건</span> : <span className="text-emerald-700 dark:text-emerald-300">자동 검수 완료</span>}
-          {qualitySummary?.failed ? <span className="text-red-700 dark:text-red-300">변환 실패 {qualitySummary.failed.toLocaleString()}건</span> : null}
-          {qualitySummary?.excluded ? <span>제외 {qualitySummary.excluded.toLocaleString()}건</span> : null}
-          {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-blue-700 underline dark:text-blue-400">출처 원문</a>}
-          {license && <span>이용조건: {license}</span>}
-          {refreshCycle && <span>갱신주기: {refreshCycle}</span>}
-          {nextReviewAt && <span>다음 점검일: {nextReviewAt}</span>}
-          {contact && <span>문의: {contact}</span>}
+      {!embed && (
+        <div className="border-b border-zinc-200 bg-white px-4 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="font-semibold text-zinc-800 dark:text-zinc-200">데이터 품질</span>
+            <span>표시 {markers.length.toLocaleString()}건</span>
+            {qualitySummary?.review ? <span className="text-amber-700 dark:text-amber-300">검수 필요 {qualitySummary.review.toLocaleString()}건</span> : <span className="text-emerald-700 dark:text-emerald-300">자동 검수 완료</span>}
+            {qualitySummary?.failed ? <span className="text-red-700 dark:text-red-300">변환 실패 {qualitySummary.failed.toLocaleString()}건</span> : null}
+            {qualitySummary?.excluded ? <span>제외 {qualitySummary.excluded.toLocaleString()}건</span> : null}
+            {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-blue-700 underline dark:text-blue-400">출처 원문</a>}
+            {license && <span>이용조건: {license}</span>}
+            {refreshCycle && <span>갱신주기: {refreshCycle}</span>}
+            {nextReviewAt && <span>다음 점검일: {nextReviewAt}</span>}
+            {contact && <span>문의: {contact}</span>}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="relative grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[340px_1fr]">
+      <div className={`relative grid flex-1 grid-cols-1 overflow-hidden ${embed ? "" : "md:grid-cols-[340px_1fr]"}`}>
         <aside
           id="map-tools-panel"
-          className={`order-2 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950 md:static md:order-1 md:block md:max-h-none md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:shadow-none ${showMobileTools ? "absolute inset-x-3 top-[96px] z-20 max-h-[calc(100dvh-180px)] rounded-xl border shadow-xl" : "hidden"}`}
+          className={asideClass}
         >
           <section className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
             <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-100">지도 사용법</h2>
@@ -484,7 +509,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
         </aside>
 
         <main className="order-1 relative bg-white md:order-2 dark:bg-zinc-950">
-          <div className="flex flex-col gap-2 border-b border-zinc-200 bg-white px-4 py-3 text-xs md:hidden dark:border-zinc-800 dark:bg-zinc-950">
+          <div className={`flex flex-col gap-2 border-b border-zinc-200 bg-white px-4 py-3 text-xs dark:border-zinc-800 dark:bg-zinc-950 ${embed ? "" : "md:hidden"}`}>
             <div className="flex items-center justify-between">
               <span className="min-w-0 font-semibold text-zinc-700 dark:text-zinc-300">
                 {filteredMarkers.length.toLocaleString()}곳 표시 중
@@ -620,6 +645,22 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           )}
         </main>
       </div>
+
+      {embed && (
+        <div className="flex items-center justify-between gap-3 border-t border-zinc-200 bg-white px-3 py-1.5 text-[11px] text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+          <span className="truncate">
+            {title}{sourceName ? ` · 출처 ${sourceName}` : ""}{dataAsOf ? ` · 기준일 ${dataAsOf}` : ""}
+          </span>
+          <a
+            href={`/m/${slug}${currentSearch ? `?${currentSearch}` : ""}`}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 font-semibold text-blue-700 hover:underline dark:text-blue-400"
+          >
+            PolicyMap에서 열기 ↗
+          </a>
+        </div>
+      )}
     </div>
   );
 }
