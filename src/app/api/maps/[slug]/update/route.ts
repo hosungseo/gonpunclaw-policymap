@@ -5,6 +5,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
 import { isIsoDate, isVisibility, metadataValidationErrors, type Visibility } from "@/lib/maps/metadata";
+import { reviewGate } from "@/lib/reviews/gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -178,7 +179,7 @@ export async function POST(
   if (body.is_listed !== undefined || body.visibility !== undefined || metadataFields.some((field) => body[field] !== undefined)) {
     const { data: prev } = await sb
       .from("maps")
-      .select("is_listed, visibility, title, description, source_name, source_url, data_as_of, owner_department")
+      .select("is_listed, visibility, title, description, source_name, source_url, data_as_of, owner_department, review_required, approved_version_id, current_version_id")
       .eq("id", auth.mapId)
       .single();
     if (prev) {
@@ -201,6 +202,14 @@ export async function POST(
       visibility: nextVisibility,
     });
     if (validation.length > 0) return jsonError("METADATA_REQUIRED", `공개 범위로 전환하려면 다음 항목이 필요합니다: ${validation.join(", ")}`, 400);
+    // Opt-in review gate: rejects the whole request before any write when private → public/unlisted is unapproved.
+    const gate = reviewGate({
+      review_required: Boolean(previousMap.review_required),
+      approved_version_id: (previousMap.approved_version_id as string | null) ?? null,
+      current_version_id: (previousMap.current_version_id as string | null) ?? null,
+      visibility: currentVisibility,
+    }, nextVisibility);
+    if (!gate.ok) return jsonError(gate.code, gate.message, 409);
   }
 
   const { data, error } = await sb

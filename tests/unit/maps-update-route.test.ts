@@ -202,4 +202,22 @@ describe("POST /api/maps/[slug]/update", () => {
     expect(audit.details.is_listed_after).toBeUndefined();
     expect(audit.details.changed_fields).toEqual(["title"]);
   });
+
+  it("blocks private→public with 409 REVIEW_REQUIRED when review is required and unapproved", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: { is_listed: false, visibility: "private", title: "t", description: "", source_name: "s", source_url: null, data_as_of: "2026-01-01", owner_department: "o", review_required: true, approved_version_id: null, current_version_id: "v1" } });
+    const res = await callRoute({ admin_token: "t", visibility: "public", title: "new title" }, "10.0.0.21");
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("REVIEW_REQUIRED");
+    expect(mockUpdateSingle).not.toHaveBeenCalled();
+  });
+
+  it("allows private→public when the current version is approved", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: { is_listed: false, visibility: "private", title: "t", description: "", source_name: "s", source_url: null, data_as_of: "2026-01-01", owner_department: "o", review_required: true, approved_version_id: "v1", current_version_id: "v1" } });
+    mockUpdateSingle.mockResolvedValueOnce({ data: { slug: "testslug", title: "t", description: "", value_label: null, value_unit: null, category_label: null, is_listed: true, visibility: "public" }, error: null });
+    const res = await callRoute({ admin_token: "t", visibility: "public" }, "10.0.0.22");
+    expect(res.status).toBe(200);
+  });
 });

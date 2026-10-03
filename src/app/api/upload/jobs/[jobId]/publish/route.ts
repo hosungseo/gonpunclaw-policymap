@@ -4,6 +4,7 @@ import { verifyUploadJobToken } from "@/lib/upload/job-token";
 import { metadataValidationErrors, normalizeNullable, normalizeVisibility, mapVisibilityToListed } from "@/lib/maps/metadata";
 import { recordAudit } from "@/lib/audit";
 import { tryCaptureMapVersion } from "@/lib/versions";
+import { reviewGate } from "@/lib/reviews/gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +55,16 @@ export async function POST(req: Request, context: { params: Promise<{ jobId: str
   const asOfConfirmed = body?.as_of_confirmed === true;
   const sensitiveConfirmed = body?.sensitive_confirmed === true;
   if (visibility !== "private" && (!sourceConfirmed || !asOfConfirmed || !sensitiveConfirmed)) return error("PUBLISH_CONFIRMATION_REQUIRED", "출처·기준일·민감정보 확인을 모두 체크해 주세요.", 400);
+
+  // Opt-in review gate: a map that requires review cannot go private → public/unlisted without an approval.
+  const { data: mapState } = await sb.from("maps").select("visibility, is_listed, review_required, approved_version_id, current_version_id").eq("id", job.map_id).single();
+  const gate = reviewGate({
+    review_required: Boolean(mapState?.review_required),
+    approved_version_id: mapState?.approved_version_id ?? null,
+    current_version_id: mapState?.current_version_id ?? null,
+    visibility: mapState?.visibility ?? (mapState?.is_listed ? "public" : "private"),
+  }, visibility);
+  if (!gate.ok) return error(gate.code, gate.message, 409);
 
   const now = new Date().toISOString();
   const { data: updatedMap, error: updateError } = await sb.from("maps").update({
