@@ -85,20 +85,38 @@ function buildFeatureCollection() {
   });
 }
 
+function selectionFromFeature(feature: GeoJSON.Feature): PolicyRegionSelection | null {
+  const code = String(feature.properties?.policy_code ?? "");
+  const region: PopulationRegion | undefined = POPULATION_REGIONS.find((item) => item.lawdCd === code);
+  if (!region) return null;
+  return {
+    code,
+    name: region.name,
+    fullName: String(feature.properties?.full_nm ?? `${region.normalizedProvince} ${region.name}`),
+    regionType: region.regionType,
+    sourceNotice: region.sourceNotice,
+    geometry: feature.geometry as GeoJSON.Geometry,
+  };
+}
+
 export function PolicyLayer({
   map,
   enabled,
   selectedCode,
+  initialSelectedCode = null,
   onSelect,
   onStatusChange,
 }: {
   map: MLMap | null;
   enabled: boolean;
   selectedCode: string | null;
+  /** Region code to select once after the layer first loads (from a shared URL). */
+  initialSelectedCode?: string | null;
   onSelect: (selection: PolicyRegionSelection | null) => void;
   onStatusChange?: (status: PolicyLayerStatus) => void;
 }) {
   const onSelectRef = useRef(onSelect);
+  const restoredRef = useRef(false);
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
@@ -140,17 +158,8 @@ export function PolicyLayer({
         map.on("click", FILL_LAYER_ID, (event) => {
           const feature = event.features?.[0];
           if (!feature) return;
-          const code = String(feature.properties?.policy_code ?? "");
-          const region: PopulationRegion | undefined = POPULATION_REGIONS.find((item) => item.lawdCd === code);
-          if (!region) return;
-          const selection: PolicyRegionSelection = {
-            code,
-            name: region.name,
-            fullName: String(feature.properties?.full_nm ?? `${region.normalizedProvince} ${region.name}`),
-            regionType: region.regionType,
-            sourceNotice: region.sourceNotice,
-            geometry: feature.geometry as GeoJSON.Geometry,
-          };
+          const selection = selectionFromFeature(feature as GeoJSON.Feature);
+          if (!selection) return;
           onSelectRef.current(selection);
           const bounds = boundsFromGeometry(selection.geometry);
           if (bounds) map.fitBounds(bounds, { padding: 48, maxZoom: 10, duration: 500 });
@@ -158,6 +167,16 @@ export function PolicyLayer({
         map.on("mouseenter", FILL_LAYER_ID, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", FILL_LAYER_ID, () => { map.getCanvas().style.cursor = ""; });
         onStatusChange?.("ready");
+        if (initialSelectedCode && !restoredRef.current) {
+          restoredRef.current = true;
+          const feature = featureCollection.features.find((f) => String(f.properties?.policy_code ?? "") === initialSelectedCode);
+          const selection = feature ? selectionFromFeature(feature) : null;
+          if (selection) {
+            onSelectRef.current(selection);
+            const bounds = boundsFromGeometry(selection.geometry);
+            if (bounds) map.fitBounds(bounds, { padding: 48, maxZoom: 10, duration: 0 });
+          }
+        }
       })
       .catch(() => {
         if (!disposed) {
@@ -170,7 +189,7 @@ export function PolicyLayer({
       disposed = true;
       removeLayers(map);
     };
-  }, [enabled, map, onStatusChange]);
+  }, [enabled, initialSelectedCode, map, onStatusChange]);
 
   useEffect(() => {
     if (!map || !enabled) return;

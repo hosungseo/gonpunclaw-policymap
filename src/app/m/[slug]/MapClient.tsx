@@ -11,19 +11,11 @@ import { Legend } from "@/components/map/Legend";
 import { MapInsights } from "@/components/map/MapInsights";
 import { PolicyLayer, type PolicyLayerStatus, type PolicyRegionSelection } from "@/components/map/PolicyLayer";
 import { ReportForm } from "@/components/map/ReportForm";
+import { SharePanel } from "@/components/map/SharePanel";
 import { filterMarkersForDisplay } from "@/components/map/filterMarkers";
 import { pointInGeometry } from "@/lib/policy-layers/geometry";
 import { POPULATION_LAYER_META, regionTypeLabel } from "@/lib/policy-layers/population";
-
-async function copyText(text: string) {
-  if (typeof navigator === "undefined" || !navigator.clipboard) return false;
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { parseMapUrlState, serializeMapUrlState, type MapUrlState } from "@/lib/share/url-state";
 
 export interface MapClientProps {
   slug: string;
@@ -54,7 +46,6 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
   const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(null);
   const [valueRange, setValueRange] = useState<[number, number] | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [focusedMarkerId, setFocusedMarkerId] = useState<string | null>(null);
   const [showMobileTools, setShowMobileTools] = useState(false);
@@ -66,11 +57,27 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
   const [selectedPolicyRegion, setSelectedPolicyRegion] = useState<PolicyRegionSelection | null>(null);
   const [viewportBounds, setViewportBounds] = useState<[number, number, number, number] | null>(null);
 
-  async function handleCopy() {
-    const ok = await copyText(typeof window === "undefined" ? `/m/${slug}` : window.location.href);
-    setCopied(ok);
-    if (ok) window.setTimeout(() => setCopied(false), 1500);
-  }
+  // Parse the shared URL once after mount; the server render cannot see window.location,
+  // so the state is applied in an effect rather than in lazy initializers (hydration-safe).
+  const [initialUrlState, setInitialUrlState] = useState<MapUrlState | null>(null);
+  const hydratedFromUrl = initialUrlState !== null;
+  useEffect(() => {
+    if (hydratedFromUrl) return;
+    const known = Array.from(new Set(markers.map((m) => m.category).filter((c): c is string => Boolean(c))));
+    const state = parseMapUrlState(window.location.search, { categories: known });
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from the external URL
+    if (state.categories !== null) setSelectedCategories(new Set(state.categories));
+    if (state.valueRange) setValueRange(state.valueRange);
+    if (state.query) setSearchQuery(state.query);
+    if (state.view !== "map") setViewMode(state.view);
+    if (state.boundary) {
+      setBoundaryLevel(state.boundary);
+      setShowBoundaries(true);
+      setBoundaryStatus("loading");
+    }
+    if (state.policyLayer) setShowPolicyLayer(true);
+    setInitialUrlState(state);
+  }, [hydratedFromUrl, markers]);
 
   const categoryBuckets = useMemo(() => {
     const counts = new Map<string, number>();
@@ -117,6 +124,29 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
   const searchResults = useMemo(() => filteredMarkers.slice(0, 8), [filteredMarkers]);
   const hasActiveFilters = Boolean(searchQuery.trim() || selectedCategories || valueRange || selectedPolicyRegion);
+
+  const currentSearch = useMemo(() => serializeMapUrlState({
+    categories: selectedCategories ? Array.from(selectedCategories) : null,
+    valueRange,
+    query: searchQuery,
+    view: viewMode,
+    boundary: showBoundaries ? boundaryLevel : null,
+    policyLayer: showPolicyLayer,
+    region: selectedPolicyRegion?.code ?? null,
+  }), [boundaryLevel, searchQuery, selectedCategories, selectedPolicyRegion, showBoundaries, showPolicyLayer, valueRange, viewMode]);
+
+  // Mirror the filter state into the address bar (debounced) without adding history entries.
+  useEffect(() => {
+    if (!hydratedFromUrl || typeof window === "undefined") return;
+    const handle = window.setTimeout(() => {
+      const next = `${window.location.pathname}${currentSearch ? `?${currentSearch}` : ""}${window.location.hash}`;
+      if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+        window.history.replaceState(window.history.state, "", next);
+      }
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [currentSearch, hydratedFromUrl]);
+
   const boundaryLevelLabel = {
     sido: "광역시도",
     sigg: "시군구",
@@ -211,13 +241,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
               표
             </button>
           </div>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="inline-flex min-h-9 items-center rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
-          >
-            {copied ? "링크 복사됨" : "링크 복사"}
-          </button>
+          <SharePanel slug={slug} title={title} search={currentSearch} apiAvailable={!isDemo && visibility !== "private"} />
         </div>
       </header>
 
@@ -485,6 +509,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                 map={map}
                 enabled={showPolicyLayer}
                 selectedCode={selectedPolicyRegion?.code ?? null}
+                initialSelectedCode={initialUrlState?.region ?? null}
                 onSelect={handlePolicyRegionSelect}
                 onStatusChange={setPolicyLayerStatus}
               />
