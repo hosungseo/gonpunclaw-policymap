@@ -426,7 +426,11 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                 checked={showPolicyLayer}
                 onChange={(event) => {
                   setShowPolicyLayer(event.target.checked);
-                  if (!event.target.checked) setSelectedPolicyRegion(null);
+                  if (!event.target.checked) {
+                    setSelectedPolicyRegion(null);
+                    // Drop a shared region that is still resolving so it cannot filter a hidden layer.
+                    setPendingRegion(null);
+                  }
                 }}
                 className="mt-1 h-4 w-4 accent-blue-700"
                 aria-label="인구감소지역 기준 레이어 표시"
@@ -534,6 +538,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                 map={map}
                 enabled={showPolicyLayer}
                 selectedCode={selectedPolicyRegion?.code ?? null}
+                frameSelection={focusedMarkerId === null}
                 onSelect={handlePolicyRegionSelect}
                 onStatusChange={setPolicyLayerStatus}
               />

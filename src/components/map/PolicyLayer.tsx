@@ -70,17 +70,21 @@ export function PolicyLayer({
   map,
   enabled,
   selectedCode,
+  frameSelection = true,
   onSelect,
   onStatusChange,
 }: {
   map: MLMap | null;
   enabled: boolean;
   selectedCode: string | null;
+  /** Frame the pre-selected region once when the layer becomes ready (off while a marker focus is pending). */
+  frameSelection?: boolean;
   onSelect: (selection: PolicyRegionSelection | null) => void;
   onStatusChange?: (status: PolicyLayerStatus) => void;
 }) {
   const onSelectRef = useRef(onSelect);
   const selectedCodeRef = useRef(selectedCode);
+  const frameSelectionRef = useRef(frameSelection);
   // Frames the already-selected region once per enable cycle (e.g. a region restored from a shared URL).
   const framedRef = useRef(false);
   useEffect(() => {
@@ -89,6 +93,9 @@ export function PolicyLayer({
   useEffect(() => {
     selectedCodeRef.current = selectedCode;
   }, [selectedCode]);
+  useEffect(() => {
+    frameSelectionRef.current = frameSelection;
+  }, [frameSelection]);
 
   useEffect(() => {
     if (!map) return;
@@ -142,7 +149,7 @@ export function PolicyLayer({
         // needs its highlight applied and, once, the viewport framed on it.
         const currentCode = selectedCodeRef.current;
         applySelectedState(map, currentCode);
-        if (currentCode && !framedRef.current) {
+        if (currentCode && frameSelectionRef.current && !framedRef.current) {
           framedRef.current = true;
           const feature = findPopulationFeature(featureCollection, currentCode);
           const bounds = feature ? boundsFromGeometry(feature.geometry) : null;

@@ -94,4 +94,14 @@ describe("SharePanel", () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
     expect(container.querySelector('button[aria-haspopup="dialog"]')?.getAttribute("aria-expanded")).toBe("false");
   });
+
+  test("closes on a pointerdown outside the panel", async () => {
+    const container = render();
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click(); });
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    await act(async () => {
+      document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    });
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
 });
