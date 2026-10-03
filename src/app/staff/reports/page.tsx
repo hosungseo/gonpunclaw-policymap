@@ -11,13 +11,13 @@ type ReportRow = {
   created_at: string;
   status: string;
   map_id: string | null;
-  map: { title: string; slug: string } | null;
+  map: { title: string; slug: string; directory_hidden: boolean | null; visibility: string | null } | null;
   reporter_ip_hash: string | null;
   reason: string;
 };
 
 type RawReportRow = Omit<ReportRow, "map"> & {
-  map: { title: string; slug: string } | Array<{ title: string; slug: string }> | null;
+  map: ReportRow["map"] | Array<NonNullable<ReportRow["map"]>> | null;
 };
 
 const DEFAULT_LIMIT = 100;
@@ -58,7 +58,7 @@ async function loadRows(status: ReportStatus | null, limit: number): Promise<Rep
   const sb = supabaseServer();
   let q = sb
     .from("reports")
-    .select("id, created_at, status, map_id, reporter_ip_hash, reason, map:maps(title, slug)")
+    .select("id, created_at, status, map_id, reporter_ip_hash, reason, map:maps(title, slug, directory_hidden, visibility)")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (status) q = q.eq("status", status);
@@ -315,6 +315,28 @@ function ReportRowView({ row, returnTo }: { row: ReportRow; returnTo: string }) 
           <span className="font-mono text-zinc-500">{row.map_id ?? "—"}</span>
         )}
         {row.map?.slug && <p className="mt-1 font-mono text-[11px] text-zinc-500">{row.map.slug}</p>}
+        {row.map?.slug && row.map_id && (
+          <form method="POST" action="/api/staff/maps/directory" className="mt-2 flex flex-wrap items-center gap-1">
+            <input type="hidden" name="map_id" value={row.map_id} />
+            <input type="hidden" name="return_to" value={returnTo} />
+            <input type="hidden" name="hidden" value={row.map.directory_hidden ? "0" : "1"} />
+            {!row.map.directory_hidden && (
+              <input
+                name="reason"
+                placeholder="숨김 사유"
+                maxLength={300}
+                className="w-32 rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            )}
+            <button
+              type="submit"
+              className={`rounded border px-2 py-1 text-[11px] font-medium ${row.map.directory_hidden ? "border-emerald-300 text-emerald-800 dark:border-emerald-800 dark:text-emerald-200" : "border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-200"}`}
+            >
+              {row.map.directory_hidden ? "디렉터리 표시" : "디렉터리 숨김"}
+            </button>
+            {row.map.directory_hidden && <span className="text-[11px] text-amber-700 dark:text-amber-300">숨김 중</span>}
+          </form>
+        )}
       </td>
       <td
         className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-600 dark:text-zinc-400"
