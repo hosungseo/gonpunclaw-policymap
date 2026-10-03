@@ -28,6 +28,10 @@ export function buildApiUrl(origin: string, slug: string): string {
   return `${stripTrailingSlashes(origin)}/api/public/maps/${slug}`;
 }
 
+export function buildGeoJsonUrl(origin: string, slug: string): string {
+  return `${buildApiUrl(origin, slug)}/geojson`;
+}
+
 export function escapeHtmlAttr(value: string): string {
   return value
     .replace(/&/g, "&amp;")

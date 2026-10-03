@@ -32,10 +32,13 @@ type ViewRow = Omit<DirectoryEntry, "reviewed" | "marker_count" | "description">
   marker_count: number | string | null;
 };
 
-/** Strip characters that would break the PostgREST `or(... ilike ...)` filter syntax. */
+/** PostgREST error code for a `range` that starts past the last row. */
+const RANGE_NOT_SATISFIABLE = "PGRST103";
+
+/** Strip characters that would break the PostgREST `or(... ilike ...)` filter syntax or act as wildcards. */
 export function sanitizeDirectoryQuery(raw: string | null | undefined): string {
   if (!raw) return "";
-  return raw.replace(/[,()%_\\]/g, "").trim().slice(0, QUERY_MAX);
+  return raw.replace(/[,()%_\\"*]/g, "").trim().slice(0, QUERY_MAX);
 }
 
 export function directoryPageBounds(pageInput: number): { page: number; from: number; to: number } {
@@ -57,8 +60,15 @@ export async function queryDirectory({ q, page }: { q: string; page: number }): 
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false })
     .range(bounds.from, bounds.to);
-  if (error) throw new Error(error.message);
   const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / DIRECTORY_PAGE_SIZE));
+  if (error) {
+    // Paging past the end is a normal client request, not an outage: answer with an empty page.
+    if (error.code === RANGE_NOT_SATISFIABLE) {
+      return { entries: [], total, page: bounds.page, pageSize: DIRECTORY_PAGE_SIZE, totalPages };
+    }
+    throw new Error(error.message);
+  }
   return {
     entries: ((data ?? []) as ViewRow[]).map((row) => ({
       slug: row.slug,
@@ -76,6 +86,6 @@ export async function queryDirectory({ q, page }: { q: string; page: number }): 
     total,
     page: bounds.page,
     pageSize: DIRECTORY_PAGE_SIZE,
-    totalPages: Math.max(1, Math.ceil(total / DIRECTORY_PAGE_SIZE)),
+    totalPages,
   };
 }

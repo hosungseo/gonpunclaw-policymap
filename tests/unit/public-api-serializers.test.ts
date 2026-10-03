@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { etagFor, publicApiHeaders, publicMapMeta, publicMarker, toGeoJson } from "@/lib/maps/public-api";
+import { PUBLIC_API_CORS, etagFor, publicApiHeaders, publicApiLinks, publicMapMeta, publicMarker, requestOrigin, toGeoJson } from "@/lib/maps/public-api";
 import type { PublicMapRecord } from "@/lib/maps/load-public-map";
+import { SITE_ORIGIN } from "@/lib/share/embed";
 
 const record: PublicMapRecord = {
   map: {
@@ -19,6 +20,12 @@ const record: PublicMapRecord = {
   review: { status: "approved", decidedAt: "2026-01-07T00:00:00Z" },
 };
 
+/** Mirrors the documented ETag recipe so expectations follow the fixture instead of a frozen string. */
+function expectedEtag(r: PublicMapRecord): string {
+  const included = r.markers.filter((m) => m.included !== false).length;
+  return `W/"${r.map.updated_at ?? ""}:${r.map.last_data_update_at ?? ""}:${r.versionNumber ?? ""}:${r.review.status}:${included}"`;
+}
+
 describe("public api serializers", () => {
   it("builds metadata with absolute links and review status", () => {
     const meta = publicMapMeta(record, "https://example.test");
@@ -32,6 +39,10 @@ describe("public api serializers", () => {
       embed: "https://example.test/embed/abc123",
     });
     expect(meta.license).toBe("CC BY");
+  });
+
+  it("exposes the same link set through publicApiLinks and tolerates a trailing slash", () => {
+    expect(publicApiLinks("https://example.test/", "abc123")).toEqual(publicMapMeta(record, "https://example.test").api);
   });
 
   it("serializes only included markers without internal fields", () => {
@@ -52,16 +63,65 @@ describe("public api serializers", () => {
     });
   });
 
-  it("derives a weak etag from the last data update and emits cache/cors headers", () => {
+  it("derives a weak etag from every input the body depends on and emits cache/cors headers", () => {
     const etag = etagFor(record);
-    expect(etag).toBe('W/"2026-01-05T00:00:00Z"');
+    expect(etag).toBe(expectedEtag(record));
+    expect(etag).toBe('W/"2026-01-06T00:00:00Z:2026-01-05T00:00:00Z:4:approved:1"');
     const headers = publicApiHeaders(etag);
-    expect(headers["Cache-Control"]).toBe("public, s-maxage=300, stale-while-revalidate=3600");
+    expect(headers["Cache-Control"]).toBe("public, s-maxage=300, stale-while-revalidate=60");
     expect(headers["Access-Control-Allow-Origin"]).toBe("*");
+    expect(headers["Access-Control-Expose-Headers"]).toBe("ETag, Retry-After");
+    expect(PUBLIC_API_CORS["Access-Control-Expose-Headers"]).toBe("ETag, Retry-After");
     expect(headers.ETag).toBe(etag);
   });
 
-  it("falls back to updated_at for the etag", () => {
-    expect(etagFor({ ...record, map: { ...record.map, last_data_update_at: null } })).toBe('W/"2026-01-06T00:00:00Z"');
+  it("changes the etag when updated_at, data freshness, version, review or marker count change", () => {
+    const base = etagFor(record);
+    expect(etagFor({ ...record, map: { ...record.map, updated_at: "2026-02-01T00:00:00Z" } })).not.toBe(base);
+    expect(etagFor({ ...record, map: { ...record.map, last_data_update_at: null } })).not.toBe(base);
+    expect(etagFor({ ...record, versionNumber: 5 })).not.toBe(base);
+    expect(etagFor({ ...record, review: { status: "pending", decidedAt: null } })).not.toBe(base);
+    expect(etagFor({ ...record, markers: record.markers.map((m) => ({ ...m, included: true })) })).not.toBe(base);
+  });
+
+  it("writes empty segments for null inputs", () => {
+    const sparse: PublicMapRecord = { ...record, map: { ...record.map, updated_at: null, last_data_update_at: null }, versionNumber: null, review: { status: "none", decidedAt: null }, markers: [] };
+    expect(etagFor(sparse)).toBe(expectedEtag(sparse));
+    expect(etagFor(sparse)).toBe('W/":::none:0"');
+  });
+});
+
+describe("requestOrigin", () => {
+  const siteHost = new URL(SITE_ORIGIN).host;
+  // `host` is a forbidden header for the fetch Request constructor and is silently dropped,
+  // so tests that need a host different from the URL set `x-forwarded-host` instead.
+  const make = (url: string, headers: Record<string, string> = {}) => new Request(url, { headers });
+
+  it("prefers x-forwarded-host over host when both are allowlisted", () => {
+    expect(requestOrigin(make("https://internal.local/x", { host: "preview-abc.vercel.app", "x-forwarded-host": siteHost, "x-forwarded-proto": "https" }))).toBe(SITE_ORIGIN);
+  });
+
+  it("falls back to SITE_ORIGIN for an unknown host", () => {
+    expect(requestOrigin(make("https://evil.example/x", { host: "evil.example", "x-forwarded-proto": "https" }))).toBe(SITE_ORIGIN);
+    expect(requestOrigin(make("https://evil.example/x", { host: siteHost, "x-forwarded-host": "evil.example" }))).toBe(SITE_ORIGIN);
+    expect(requestOrigin(make("https://evil.example/x", { host: "notvercel.app" }))).toBe(SITE_ORIGIN);
+    expect(requestOrigin(make("https://evil.example/x", { host: `${siteHost}.evil.example` }))).toBe(SITE_ORIGIN);
+  });
+
+  it("accepts Vercel preview hosts, ignores the URL host and defaults to https", () => {
+    expect(requestOrigin(make("http://127.0.0.1/x", { "x-forwarded-host": "preview-abc.vercel.app" }))).toBe("https://preview-abc.vercel.app");
+    expect(requestOrigin(make("http://127.0.0.1/x", { "x-forwarded-host": "preview-abc.vercel.app", "x-forwarded-proto": "http" }))).toBe("https://preview-abc.vercel.app");
+  });
+
+  it("respects http for localhost with a port", () => {
+    expect(requestOrigin(make("http://localhost:3000/x", { "x-forwarded-host": "localhost:3000", "x-forwarded-proto": "http" }))).toBe("http://localhost:3000");
+    expect(requestOrigin(make("http://localhost:3000/x", { "x-forwarded-host": "127.0.0.1:3000", "x-forwarded-proto": "http" }))).toBe("http://127.0.0.1:3000");
+    expect(requestOrigin(make("http://localhost:3000/x", { "x-forwarded-host": "localhost:3000" }))).toBe("https://localhost:3000");
+  });
+
+  it("uses the request URL origin without a host header only when that host is allowlisted", () => {
+    expect(requestOrigin(make("http://localhost:3000/api/public/maps"))).toBe("http://localhost:3000");
+    expect(requestOrigin(make(`${SITE_ORIGIN}/api/public/maps`))).toBe(SITE_ORIGIN);
+    expect(requestOrigin(make("https://evil.example/api/public/maps"))).toBe(SITE_ORIGIN);
   });
 });

@@ -2,6 +2,14 @@
 import { effectiveVisibility, type PublicMapRecord, type PublicMarkerRow } from "@/lib/maps/load-public-map";
 import type { Visibility } from "@/lib/maps/metadata";
 import type { ReviewStatus } from "@/lib/reviews/gate";
+import { SITE_ORIGIN, buildApiUrl, buildEmbedUrl, buildGeoJsonUrl, buildMapUrl } from "@/lib/share/embed";
+
+export interface PublicApiLinks {
+  json: string;
+  geojson: string;
+  map: string;
+  embed: string;
+}
 
 export interface PublicMapMeta {
   slug: string;
@@ -22,7 +30,7 @@ export interface PublicMapMeta {
   value_label: string | null;
   value_unit: string | null;
   category_label: string | null;
-  api: { json: string; geojson: string; map: string; embed: string };
+  api: PublicApiLinks;
 }
 
 export interface PublicMarker {
@@ -34,6 +42,16 @@ export interface PublicMarker {
   lat: number;
   lng: number;
   extra: Record<string, unknown>;
+}
+
+/** Absolute links for one map; shared by the detail serializer and the directory list. */
+export function publicApiLinks(origin: string, slug: string): PublicApiLinks {
+  return {
+    json: buildApiUrl(origin, slug),
+    geojson: buildGeoJsonUrl(origin, slug),
+    map: buildMapUrl(origin, slug),
+    embed: buildEmbedUrl(origin, slug),
+  };
 }
 
 export function publicMapMeta(record: PublicMapRecord, origin: string): PublicMapMeta {
@@ -57,12 +75,7 @@ export function publicMapMeta(record: PublicMapRecord, origin: string): PublicMa
     value_label: map.value_label,
     value_unit: map.value_unit,
     category_label: map.category_label,
-    api: {
-      json: `${origin}/api/public/maps/${map.slug}`,
-      geojson: `${origin}/api/public/maps/${map.slug}/geojson`,
-      map: `${origin}/m/${map.slug}`,
-      embed: `${origin}/embed/${map.slug}`,
-    },
+    api: publicApiLinks(origin, map.slug),
   };
 }
 
@@ -108,27 +121,68 @@ export function toGeoJson(meta: PublicMapMeta, markers: PublicMarker[]): PublicF
   };
 }
 
+/**
+ * Weak ETag covering everything the response body depends on: map metadata (updated_at),
+ * data freshness, live version, review status and the number of markers actually served.
+ */
 export function etagFor(record: PublicMapRecord): string {
-  return `W/"${record.map.last_data_update_at ?? record.map.updated_at ?? record.map.slug}"`;
+  const includedCount = record.markers.filter((m) => m.included !== false).length;
+  const parts = [
+    record.map.updated_at ?? "",
+    record.map.last_data_update_at ?? "",
+    record.versionNumber ?? "",
+    record.review.status,
+    includedCount,
+  ];
+  return `W/"${parts.join(":")}"`;
 }
 
 export const PUBLIC_API_CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "If-None-Match",
+  "Access-Control-Expose-Headers": "ETag, Retry-After",
 };
 
 export function publicApiHeaders(etag?: string): Record<string, string> {
   return {
     ...PUBLIC_API_CORS,
-    "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+    // Short stale window: a map can be switched to private and should drop out of caches quickly.
+    "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60",
     ...(etag ? { ETag: etag } : {}),
   };
 }
 
+const LOCAL_HOST_RE = /^(localhost|127\.0\.0\.1)(:\d+)?$/;
+const HOST_SHAPE_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)*(:\d+)?$/;
+
+function isLocalHost(host: string): boolean {
+  return LOCAL_HOST_RE.test(host);
+}
+
+/** Hosts we are willing to echo back in absolute links: the site itself, Vercel previews and local dev. */
+function isAllowedHost(host: string): boolean {
+  if (!HOST_SHAPE_RE.test(host)) return false;
+  return host === new URL(SITE_ORIGIN).host || host.endsWith(".vercel.app") || isLocalHost(host);
+}
+
+function firstHeaderValue(req: Request, name: string): string | null {
+  const value = req.headers.get(name)?.split(",")[0]?.trim().toLowerCase();
+  return value ? value : null;
+}
+
+/**
+ * Origin used for absolute links in responses. Forwarded/host headers are attacker-controlled,
+ * so they are only honoured for an allowlisted host; anything else falls back to SITE_ORIGIN.
+ */
 export function requestOrigin(req: Request): string {
-  const proto = req.headers.get("x-forwarded-proto");
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  if (host) return `${proto ?? "https"}://${host}`;
-  return new URL(req.url).origin;
+  const headerHost = firstHeaderValue(req, "x-forwarded-host") ?? firstHeaderValue(req, "host");
+  if (!headerHost) {
+    const url = new URL(req.url);
+    return isAllowedHost(url.host.toLowerCase()) ? url.origin : SITE_ORIGIN;
+  }
+  if (!isAllowedHost(headerHost)) return SITE_ORIGIN;
+  const forwardedProto = firstHeaderValue(req, "x-forwarded-proto");
+  const proto = forwardedProto === "http" && isLocalHost(headerHost) ? "http" : "https";
+  return `${proto}://${headerHost}`;
 }

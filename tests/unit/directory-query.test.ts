@@ -20,6 +20,7 @@ describe("directory query helpers", () => {
   it("sanitizes search input", async () => {
     const { sanitizeDirectoryQuery } = await import("@/lib/directory/query");
     expect(sanitizeDirectoryQuery("  복지,(시설)%_  ")).toBe("복지시설");
+    expect(sanitizeDirectoryQuery('도서"관*')).toBe("도서관");
     expect(sanitizeDirectoryQuery("a".repeat(100))).toHaveLength(80);
     expect(sanitizeDirectoryQuery(undefined)).toBe("");
   });
@@ -56,5 +57,25 @@ describe("directory query helpers", () => {
     const { queryDirectory } = await import("@/lib/directory/query");
     await queryDirectory({ q: "", page: 1 });
     expect(chain.or).not.toHaveBeenCalled();
+  });
+
+  it("skips the search clause when q consists only of stripped characters", async () => {
+    mockRange.mockResolvedValue({ data: [], count: 0, error: null });
+    const { queryDirectory } = await import("@/lib/directory/query");
+    await queryDirectory({ q: '%%%"*', page: 1 });
+    expect(chain.or).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty page instead of throwing when the page is past the end", async () => {
+    mockRange.mockResolvedValue({ data: null, count: 30, error: { code: "PGRST103", message: "Requested range not satisfiable" } });
+    const { queryDirectory } = await import("@/lib/directory/query");
+    const result = await queryDirectory({ q: "", page: 9 });
+    expect(result).toEqual({ entries: [], total: 30, page: 9, pageSize: 24, totalPages: 2 });
+  });
+
+  it("throws on other query errors", async () => {
+    mockRange.mockResolvedValue({ data: null, count: null, error: { code: "42P01", message: "relation does not exist" } });
+    const { queryDirectory } = await import("@/lib/directory/query");
+    await expect(queryDirectory({ q: "", page: 1 })).rejects.toThrow("relation does not exist");
   });
 });

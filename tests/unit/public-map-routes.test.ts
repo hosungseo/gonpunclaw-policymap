@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicMapRecord } from "@/lib/maps/load-public-map";
+import { etagFor } from "@/lib/maps/public-api";
 
 const mockLoad = vi.fn();
 const mockRateLimit = vi.fn();
@@ -26,8 +27,11 @@ const record: PublicMapRecord = {
   review: { status: "none", decidedAt: null },
 };
 
+// An allowlisted host so requestOrigin echoes it back in absolute links.
+const HOST = "preview-r3.vercel.app";
+
 function req(url: string, headers: Record<string, string> = {}) {
-  return new Request(url, { headers: { host: "example.test", "x-forwarded-proto": "https", ...headers } });
+  return new Request(url, { headers: { host: HOST, "x-forwarded-proto": "https", ...headers } });
 }
 const ctx = { params: Promise.resolve({ slug: "abc123" }) };
 
@@ -40,37 +44,42 @@ describe("public map routes", () => {
   it("returns JSON with meta, markers and cache/cors headers for unlisted maps", async () => {
     mockLoad.mockResolvedValue(record);
     const { GET } = await import("@/app/api/public/maps/[slug]/route");
-    const res = await GET(req("https://example.test/api/public/maps/abc123"), ctx);
+    const res = await GET(req(`https://${HOST}/api/public/maps/abc123`), ctx);
     expect(res.status).toBe(200);
-    expect(res.headers.get("cache-control")).toContain("s-maxage=300");
+    expect(res.headers.get("cache-control")).toBe("public, s-maxage=300, stale-while-revalidate=60");
     expect(res.headers.get("access-control-allow-origin")).toBe("*");
-    expect(res.headers.get("etag")).toBe('W/"2026-01-05T00:00:00Z"');
+    expect(res.headers.get("access-control-expose-headers")).toBe("ETag, Retry-After");
+    expect(res.headers.get("etag")).toBe(etagFor(record));
     const json = await res.json();
     expect(json.ok).toBe(true);
-    expect(json.map.api.json).toBe("https://example.test/api/public/maps/abc123");
+    expect(json.map.api.json).toBe(`https://${HOST}/api/public/maps/abc123`);
     expect(json.markers).toHaveLength(1);
     expect(mockLoad).toHaveBeenCalledWith("abc123");
   });
 
-  it("returns 304 when If-None-Match matches", async () => {
+  it("returns 304 with ETag and Cache-Control when If-None-Match matches", async () => {
     mockLoad.mockResolvedValue(record);
     const { GET } = await import("@/app/api/public/maps/[slug]/route");
-    const res = await GET(req("https://example.test/api/public/maps/abc123", { "if-none-match": 'W/"2026-01-05T00:00:00Z"' }), ctx);
+    const res = await GET(req(`https://${HOST}/api/public/maps/abc123`, { "if-none-match": etagFor(record) }), ctx);
     expect(res.status).toBe(304);
+    expect(res.headers.get("etag")).toBe(etagFor(record));
+    expect(res.headers.get("cache-control")).toBe("public, s-maxage=300, stale-while-revalidate=60");
   });
 
-  it("returns 404 for private or missing maps", async () => {
+  it("returns 404 without Cache-Control for private or missing maps", async () => {
     mockLoad.mockResolvedValue(null);
     const { GET } = await import("@/app/api/public/maps/[slug]/route");
-    const res = await GET(req("https://example.test/api/public/maps/abc123"), ctx);
+    const res = await GET(req(`https://${HOST}/api/public/maps/abc123`), ctx);
     expect(res.status).toBe(404);
+    expect(res.headers.get("cache-control")).toBeNull();
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
     expect((await res.json()).error.code).toBe("NOT_FOUND");
   });
 
   it("returns 429 with Retry-After when rate limited", async () => {
     mockRateLimit.mockResolvedValue({ allowed: false, retryAfterMs: 4000 });
     const { GET } = await import("@/app/api/public/maps/[slug]/route");
-    const res = await GET(req("https://example.test/api/public/maps/abc123"), ctx);
+    const res = await GET(req(`https://${HOST}/api/public/maps/abc123`), ctx);
     expect(res.status).toBe(429);
     expect(res.headers.get("retry-after")).toBe("4");
     expect(mockLoad).not.toHaveBeenCalled();
@@ -79,12 +88,30 @@ describe("public map routes", () => {
   it("serves GeoJSON with the geo+json content type", async () => {
     mockLoad.mockResolvedValue(record);
     const { GET } = await import("@/app/api/public/maps/[slug]/geojson/route");
-    const res = await GET(req("https://example.test/api/public/maps/abc123/geojson"), ctx);
+    const res = await GET(req(`https://${HOST}/api/public/maps/abc123/geojson`), ctx);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/geo+json");
     const fc = await res.json();
     expect(fc.type).toBe("FeatureCollection");
     expect(fc.features[0].geometry.coordinates).toEqual([127, 37.5]);
+  });
+
+  it("serves an empty feature list when no marker is included", async () => {
+    mockLoad.mockResolvedValue({ ...record, markers: record.markers.map((m) => ({ ...m, included: false })) });
+    const { GET } = await import("@/app/api/public/maps/[slug]/geojson/route");
+    const res = await GET(req(`https://${HOST}/api/public/maps/abc123/geojson`), ctx);
+    expect(res.status).toBe(200);
+    const fc = await res.json();
+    expect(fc.type).toBe("FeatureCollection");
+    expect(fc.features).toEqual([]);
+  });
+
+  it("falls back to the canonical origin for links when the host is not allowlisted", async () => {
+    mockLoad.mockResolvedValue(record);
+    const { GET } = await import("@/app/api/public/maps/[slug]/route");
+    const res = await GET(new Request("https://evil.example/api/public/maps/abc123", { headers: { host: "evil.example" } }), ctx);
+    const json = await res.json();
+    expect(json.map.api.json).toBe("https://gonpunclaw-policymap.vercel.app/api/public/maps/abc123");
   });
 
   it("answers OPTIONS preflight with 204", async () => {

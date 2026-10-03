@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { queryDirectory } from "@/lib/directory/query";
-import { publicApiHeaders, requestOrigin } from "@/lib/maps/public-api";
+import { publicApiHeaders, publicApiLinks, requestOrigin } from "@/lib/maps/public-api";
 import { publicApiError, publicApiOptions } from "@/lib/maps/public-api-route";
 import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Parse `?page=` leniently: anything that is not a positive integer becomes page 1. */
+function parsePage(raw: string | null): number {
+  const page = Number.parseInt(raw ?? "1", 10);
+  return Number.isFinite(page) && page >= 1 ? page : 1;
+}
 
 export async function GET(req: Request) {
   const limit = await rateLimitRequest(req, "public-api", LIMITS.publicApi);
@@ -14,22 +20,14 @@ export async function GET(req: Request) {
   }
   const url = new URL(req.url);
   const q = url.searchParams.get("q") ?? "";
-  const page = Number.parseInt(url.searchParams.get("page") ?? "1", 10);
+  const page = parsePage(url.searchParams.get("page"));
   try {
-    const result = await queryDirectory({ q, page: Number.isFinite(page) ? page : 1 });
+    const result = await queryDirectory({ q, page });
     const origin = requestOrigin(req);
     return NextResponse.json(
       {
         ok: true,
-        maps: result.entries.map((entry) => ({
-          ...entry,
-          api: {
-            json: `${origin}/api/public/maps/${entry.slug}`,
-            geojson: `${origin}/api/public/maps/${entry.slug}/geojson`,
-            map: `${origin}/m/${entry.slug}`,
-            embed: `${origin}/embed/${entry.slug}`,
-          },
-        })),
+        maps: result.entries.map((entry) => ({ ...entry, api: publicApiLinks(origin, entry.slug) })),
         total: result.total,
         page: result.page,
         page_size: result.pageSize,
