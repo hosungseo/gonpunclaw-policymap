@@ -68,4 +68,5 @@ export const LIMITS = {
   adminAttempt: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5/10min
   deleteMap: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5/10min
   report: { limit: 5, windowMs: 60 * 60 * 1000 }, // 5/hour
+  publicApi: { limit: 120, windowMs: 60 * 1000 }, // 120/min per IP
 } as const;

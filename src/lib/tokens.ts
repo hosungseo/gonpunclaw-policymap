@@ -3,6 +3,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 const RESERVED = new Set([
   "admin", "api", "new", "m", "staff", "template",
   "about", "help", "privacy", "terms", "sitemap",
+  "embed", "maps", "review",
 ]);
 
 export function isReservedSlug(slug: string): boolean {

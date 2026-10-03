@@ -40,3 +40,11 @@ describe("admin token", () => {
     expect(verifyAdminToken(t, h, "p2")).toBe(false);
   });
 });
+
+describe("R3 reserved slugs", () => {
+  it("reserves embed, maps and review", () => {
+    expect(isReservedSlug("embed")).toBe(true);
+    expect(isReservedSlug("maps")).toBe(true);
+    expect(isReservedSlug("review")).toBe(true);
+  });
+});
