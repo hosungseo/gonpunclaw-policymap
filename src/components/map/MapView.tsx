@@ -7,6 +7,8 @@ export interface MapViewProps {
   center?: [number, number];
   zoom?: number;
   onReady?: (map: MLMap) => void;
+  /** Called after the map instance is removed so owners can drop their reference to it. */
+  onDispose?: () => void;
 }
 
 const DEFAULT_CENTER: [number, number] = [127.77, 36.2];
@@ -19,7 +21,7 @@ const OSM_STYLE = {
   layers: [{ id: "osm", type: "raster", source: "osm" }],
 } as const;
 
-export function MapView({ center = DEFAULT_CENTER, zoom = 6, onReady }: MapViewProps) {
+export function MapView({ center = DEFAULT_CENTER, zoom = 6, onReady, onDispose }: MapViewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const [centerLng, centerLat] = center;
@@ -36,8 +38,12 @@ export function MapView({ center = DEFAULT_CENTER, zoom = 6, onReady }: MapViewP
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
     map.on("load", () => onReady?.(map));
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
-  }, [centerLng, centerLat, zoom, onReady]);
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      onDispose?.();
+    };
+  }, [centerLng, centerLat, zoom, onReady, onDispose]);
 
   return <div ref={ref} className="w-full h-full" />;
 }

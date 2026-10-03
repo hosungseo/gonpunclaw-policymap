@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_MAP_URL_STATE, parseMapUrlState, serializeMapUrlState } from "@/lib/share/url-state";
+import { EMPTY_MAP_URL_STATE, parseMapUrlState, serializeMapUrlState, toUrlSearchParams } from "@/lib/share/url-state";
 
 describe("map url state codec", () => {
   it("serializes an empty state to an empty string", () => {
@@ -65,5 +65,13 @@ describe("map url state codec", () => {
     expect(parseMapUrlState(`q=${long}`).query.length).toBe(200);
     const qs = serializeMapUrlState({ ...EMPTY_MAP_URL_STATE, query: long });
     expect(new URLSearchParams(qs).get("q")?.length).toBe(200);
+  });
+
+  it("converts Next.js page searchParams (string | string[]) into URLSearchParams", () => {
+    const params = toUrlSearchParams({ cat: ["복지", "청년"], q: "서초", skip: undefined });
+    expect(params.getAll("cat")).toEqual(["복지", "청년"]);
+    expect(params.get("q")).toBe("서초");
+    expect(params.has("skip")).toBe(false);
+    expect(parseMapUrlState(params, { categories: ["복지"] }).categories).toEqual(["복지"]);
   });
 });

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { supabaseServer } from "@/lib/supabase/server";
+import { parseMapUrlState, toUrlSearchParams } from "@/lib/share/url-state";
 import type { MapClientProps } from "./MapClient";
 import { MapClient } from "./MapClient";
 
@@ -72,8 +73,11 @@ export async function generateMetadata(props: PageProps<"/m/[slug]">): Promise<M
 }
 
 export default async function MapPage(props: PageProps<"/m/[slug]">) {
-  const { slug } = await props.params;
+  const [{ slug }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const loaded = await loadMap(slug);
   if (!loaded) notFound();
-  return <MapClient {...loaded} />;
+  // Parse share-link filters on the server so the first render already matches the URL.
+  const categories = Array.from(new Set(loaded.markers.map((m) => m.category).filter((c): c is string => Boolean(c))));
+  const initialUrlState = parseMapUrlState(toUrlSearchParams(searchParams), { categories });
+  return <MapClient {...loaded} initialUrlState={initialUrlState} />;
 }

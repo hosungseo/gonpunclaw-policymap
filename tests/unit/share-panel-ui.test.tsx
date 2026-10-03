@@ -59,4 +59,39 @@ describe("SharePanel", () => {
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click(); });
     expect(container.textContent).not.toContain("데이터 API");
   });
+
+  test("shows three items when the API is available and copies the API url", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const container = render({ apiAvailable: true });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click(); });
+    const items = Array.from(container.querySelectorAll('[role="dialog"] button'));
+    expect(items).toHaveLength(3);
+    const copyApi = items.find((b) => b.textContent?.includes("데이터 API"))! as HTMLButtonElement;
+    await act(async () => { copyApi.click(); });
+    expect(writeText).toHaveBeenCalledWith("https://example.test/api/public/maps/abc123");
+  });
+
+  test("falls back to a readonly input when the clipboard write fails", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const container = render();
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click(); });
+    const copyLink = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("현재 보기 링크"))!;
+    await act(async () => { copyLink.click(); });
+    expect(container.querySelector('button[aria-haspopup="dialog"]')?.textContent).toBe("복사 실패");
+    const input = container.querySelector<HTMLInputElement>('[role="dialog"] input[readonly]');
+    expect(input?.value).toBe("https://example.test/m/abc123?view=table");
+  });
+
+  test("closes on Escape", async () => {
+    const container = render();
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click(); });
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.querySelector('button[aria-haspopup="dialog"]')?.getAttribute("aria-expanded")).toBe("false");
+  });
 });

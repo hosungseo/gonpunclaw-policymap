@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SITE_ORIGIN, buildEmbedSnippet, buildEmbedUrl, buildMapUrl, escapeHtmlAttr } from "@/lib/share/embed";
+import { SITE_ORIGIN, buildApiUrl, buildEmbedSnippet, buildEmbedUrl, buildMapUrl, escapeHtmlAttr } from "@/lib/share/embed";
 
 describe("share url builders", () => {
   it("builds map and embed urls with an optional query string", () => {
@@ -10,6 +10,7 @@ describe("share url builders", () => {
 
   it("strips trailing slashes from the origin", () => {
     expect(buildMapUrl("https://x.com/", "s")).toBe("https://x.com/m/s");
+    expect(buildApiUrl("https://x.com/", "s")).toBe("https://x.com/api/public/maps/s");
   });
 
   it("escapes html attribute characters", () => {

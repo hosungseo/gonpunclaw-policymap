@@ -35,6 +35,16 @@ function parseNumber(raw: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Converts Next.js page `searchParams` (string | string[] values) into URLSearchParams. */
+export function toUrlSearchParams(input: Record<string, string | string[] | undefined>): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value]) params.append(key, item);
+  }
+  return params;
+}
+
 export function parseMapUrlState(input: string | URLSearchParams, known?: { categories?: string[] }): MapUrlState {
   const params = typeof input === "string" ? new URLSearchParams(input.replace(/^\?/, "")) : input;
   const state: MapUrlState = { ...EMPTY_MAP_URL_STATE };

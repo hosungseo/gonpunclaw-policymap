@@ -24,6 +24,10 @@ export function buildEmbedUrl(origin: string, slug: string, search = ""): string
   return withSearch(`${stripTrailingSlashes(origin)}/embed/${slug}`, search);
 }
 
+export function buildApiUrl(origin: string, slug: string): string {
+  return `${stripTrailingSlashes(origin)}/api/public/maps/${slug}`;
+}
+
 export function escapeHtmlAttr(value: string): string {
   return value
     .replace(/&/g, "&amp;")

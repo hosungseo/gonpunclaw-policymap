@@ -14,8 +14,26 @@ import { ReportForm } from "@/components/map/ReportForm";
 import { SharePanel } from "@/components/map/SharePanel";
 import { filterMarkersForDisplay } from "@/components/map/filterMarkers";
 import { pointInGeometry } from "@/lib/policy-layers/geometry";
+import { findPopulationFeature, loadPopulationFeatureCollection, selectionFromFeature } from "@/lib/policy-layers/load-population-features";
 import { POPULATION_LAYER_META, regionTypeLabel } from "@/lib/policy-layers/population";
-import { parseMapUrlState, serializeMapUrlState, type MapUrlState } from "@/lib/share/url-state";
+import { serializeMapUrlState, type MapUrlState } from "@/lib/share/url-state";
+
+// Query keys owned by the viewer; anything else in the address bar is preserved on write-back.
+const MAP_URL_KEYS = ["cat", "min", "max", "q", "view", "bnd", "pop", "region"] as const;
+
+function computeBaseValueRange(markers: MarkerData[]): [number, number] | null {
+  const values = markers.map((m) => m.value).filter((v): v is number => v != null);
+  if (values.length === 0) return null;
+  return [Math.min(...values), Math.max(...values)];
+}
+
+/** Clamps a shared value range to the data's own range; null when nothing valid remains. */
+function clampValueRange(range: [number, number] | null | undefined, base: [number, number] | null): [number, number] | null {
+  if (!range || !base) return null;
+  const min = Math.max(range[0], base[0]);
+  const max = Math.min(range[1], base[1]);
+  return min <= max ? [min, max] : null;
+}
 
 export interface MapClientProps {
   slug: string;
@@ -37,47 +55,47 @@ export interface MapClientProps {
   qualitySummary?: { total: number; review: number; excluded: number; failed?: number };
   markers: MarkerData[];
   isDemo?: boolean;
+  /** Filter state parsed from the request URL on the server (shared links, embeds). */
+  initialUrlState?: MapUrlState;
 }
 
 type ViewMode = "map" | "table";
 
-export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateAt, qualitySummary, markers, isDemo = false }: MapClientProps) {
+export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateAt, qualitySummary, markers, isDemo = false, initialUrlState }: MapClientProps) {
   const [map, setMap] = useState<MLMap | null>(null);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(null);
-  const [valueRange, setValueRange] = useState<[number, number] | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("map");
+  const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(() => (initialUrlState?.categories ? new Set(initialUrlState.categories) : null));
+  const [valueRange, setValueRange] = useState<[number, number] | null>(() => clampValueRange(initialUrlState?.valueRange, computeBaseValueRange(markers)));
+  const [searchQuery, setSearchQuery] = useState(initialUrlState?.query ?? "");
+  const [viewMode, setViewMode] = useState<ViewMode>(initialUrlState?.view ?? "map");
   const [focusedMarkerId, setFocusedMarkerId] = useState<string | null>(null);
   const [showMobileTools, setShowMobileTools] = useState(false);
-  const [showBoundaries, setShowBoundaries] = useState(false);
-  const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>("sido");
-  const [boundaryStatus, setBoundaryStatus] = useState<BoundaryLayerStatus>("idle");
-  const [showPolicyLayer, setShowPolicyLayer] = useState(false);
+  const [showBoundaries, setShowBoundaries] = useState(Boolean(initialUrlState?.boundary));
+  const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>(initialUrlState?.boundary ?? "sido");
+  const [boundaryStatus, setBoundaryStatus] = useState<BoundaryLayerStatus>(initialUrlState?.boundary ? "loading" : "idle");
+  const [showPolicyLayer, setShowPolicyLayer] = useState(initialUrlState?.policyLayer ?? false);
   const [policyLayerStatus, setPolicyLayerStatus] = useState<PolicyLayerStatus>("idle");
   const [selectedPolicyRegion, setSelectedPolicyRegion] = useState<PolicyRegionSelection | null>(null);
+  // Region code from the shared URL that still has to be resolved to a polygon.
+  const [pendingRegion, setPendingRegion] = useState<string | null>(initialUrlState?.region ?? null);
   const [viewportBounds, setViewportBounds] = useState<[number, number, number, number] | null>(null);
 
-  // Parse the shared URL once after mount; the server render cannot see window.location,
-  // so the state is applied in an effect rather than in lazy initializers (hydration-safe).
-  const [initialUrlState, setInitialUrlState] = useState<MapUrlState | null>(null);
-  const hydratedFromUrl = initialUrlState !== null;
+  // Resolve the shared region without depending on the map being mounted (table view included).
   useEffect(() => {
-    if (hydratedFromUrl) return;
-    const known = Array.from(new Set(markers.map((m) => m.category).filter((c): c is string => Boolean(c))));
-    const state = parseMapUrlState(window.location.search, { categories: known });
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from the external URL
-    if (state.categories !== null) setSelectedCategories(new Set(state.categories));
-    if (state.valueRange) setValueRange(state.valueRange);
-    if (state.query) setSearchQuery(state.query);
-    if (state.view !== "map") setViewMode(state.view);
-    if (state.boundary) {
-      setBoundaryLevel(state.boundary);
-      setShowBoundaries(true);
-      setBoundaryStatus("loading");
-    }
-    if (state.policyLayer) setShowPolicyLayer(true);
-    setInitialUrlState(state);
-  }, [hydratedFromUrl, markers]);
+    if (!pendingRegion) return;
+    let cancelled = false;
+    loadPopulationFeatureCollection()
+      .then((collection) => {
+        if (cancelled) return;
+        const feature = findPopulationFeature(collection, pendingRegion);
+        const selection = feature ? selectionFromFeature(feature) : null;
+        if (selection) setSelectedPolicyRegion(selection);
+        setPendingRegion(null);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingRegion(null);
+      });
+    return () => { cancelled = true; };
+  }, [pendingRegion]);
 
   const categoryBuckets = useMemo(() => {
     const counts = new Map<string, number>();
@@ -90,11 +108,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
       .sort((a, b) => b.count - a.count);
   }, [markers]);
 
-  const baseValueRange: [number, number] | null = useMemo(() => {
-    const values = markers.map((m) => m.value).filter((v): v is number => v != null);
-    if (values.length === 0) return null;
-    return [Math.min(...values), Math.max(...values)];
-  }, [markers]);
+  const baseValueRange = useMemo(() => computeBaseValueRange(markers), [markers]);
 
   const baseFilteredMarkers = useMemo(() => {
     return filterMarkersForDisplay(markers, { selectedCategories, valueRange, searchQuery });
@@ -136,16 +150,21 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
   }), [boundaryLevel, searchQuery, selectedCategories, selectedPolicyRegion, showBoundaries, showPolicyLayer, valueRange, viewMode]);
 
   // Mirror the filter state into the address bar (debounced) without adding history entries.
+  // Waits until a shared region is resolved so `region` is never stripped transiently.
   useEffect(() => {
-    if (!hydratedFromUrl || typeof window === "undefined") return;
+    if (pendingRegion !== null || typeof window === "undefined") return;
     const handle = window.setTimeout(() => {
-      const next = `${window.location.pathname}${currentSearch ? `?${currentSearch}` : ""}${window.location.hash}`;
+      const params = new URLSearchParams(window.location.search);
+      for (const key of MAP_URL_KEYS) params.delete(key);
+      for (const [key, value] of new URLSearchParams(currentSearch)) params.append(key, value);
+      const nextSearch = params.toString();
+      const next = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
       if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
         window.history.replaceState(window.history.state, "", next);
       }
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [currentSearch, hydratedFromUrl]);
+  }, [currentSearch, pendingRegion]);
 
   const boundaryLevelLabel = {
     sido: "광역시도",
@@ -171,6 +190,12 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
   const handlePolicyRegionSelect = useCallback((selection: PolicyRegionSelection | null) => {
     setSelectedPolicyRegion(selection);
+  }, []);
+
+  // MapView removes its MapLibre instance when the table view takes over; drop the stale
+  // reference so the layers do not touch a removed map when the map view is shown again.
+  const handleMapDispose = useCallback(() => {
+    setMap(null);
   }, []);
 
   const policyLayerMessage = useMemo(() => {
@@ -497,7 +522,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
           {viewMode === "map" ? (
             <>
-              <MapView onReady={setMap} />
+              <MapView onReady={setMap} onDispose={handleMapDispose} />
               <BoundaryLayer
                 map={map}
                 markers={filteredMarkers}
@@ -509,7 +534,6 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                 map={map}
                 enabled={showPolicyLayer}
                 selectedCode={selectedPolicyRegion?.code ?? null}
-                initialSelectedCode={initialUrlState?.region ?? null}
                 onSelect={handlePolicyRegionSelect}
                 onStatusChange={setPolicyLayerStatus}
               />
