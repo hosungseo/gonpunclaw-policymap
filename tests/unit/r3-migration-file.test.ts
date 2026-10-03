@@ -21,4 +21,10 @@ describe("0008_r3_collaboration migration", () => {
     expect(sql).toMatch(/directory_hidden = false/);
     expect(sql).toContain("marker_count");
   });
+  it("hardens the view and token hash columns against PostgREST exposure", () => {
+    expect(sql).toContain("security_invoker = true");
+    expect(sql).toContain("revoke select (admin_token_hash, review_token_hash)");
+    expect(sql).toContain("maps_approved_version_idx");
+    expect(sql).toContain("map_reviews_version_idx");
+  });
 });

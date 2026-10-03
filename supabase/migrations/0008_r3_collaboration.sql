@@ -51,3 +51,13 @@ select
   (select count(*) from public.markers k where k.map_id = m.id and k.included = true) as marker_count
 from public.maps m
 where m.visibility = 'public' and m.directory_hidden = false;
+
+-- The view is read with the service role only. Make it honor caller privileges and keep it off the anon/authenticated surface.
+alter view public.public_directory_maps set (security_invoker = true);
+revoke all on public.public_directory_maps from anon, authenticated;
+
+-- Token hashes must never be selectable through PostgREST, even on public rows.
+revoke select (admin_token_hash, review_token_hash) on public.maps from anon, authenticated;
+
+create index if not exists maps_approved_version_idx on public.maps (approved_version_id);
+create index if not exists map_reviews_version_idx on public.map_reviews (version_id);

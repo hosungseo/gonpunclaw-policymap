@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { supabaseServer } from "@/lib/supabase/server";
+import { SITE_ORIGIN } from "@/lib/share/embed";
 
-const baseUrl = "https://gonpunclaw-policymap.vercel.app";
+const baseUrl = SITE_ORIGIN;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();

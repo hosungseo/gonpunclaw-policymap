@@ -12,12 +12,16 @@ function withSearch(url: string, search: string): string {
   return qs ? `${url}?${qs}` : url;
 }
 
+function stripTrailingSlashes(origin: string): string {
+  return origin.replace(/\/+$/, "");
+}
+
 export function buildMapUrl(origin: string, slug: string, search = ""): string {
-  return withSearch(`${origin}/m/${slug}`, search);
+  return withSearch(`${stripTrailingSlashes(origin)}/m/${slug}`, search);
 }
 
 export function buildEmbedUrl(origin: string, slug: string, search = ""): string {
-  return withSearch(`${origin}/embed/${slug}`, search);
+  return withSearch(`${stripTrailingSlashes(origin)}/embed/${slug}`, search);
 }
 
 export function escapeHtmlAttr(value: string): string {

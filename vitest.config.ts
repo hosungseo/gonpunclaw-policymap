@@ -6,6 +6,7 @@ export default defineConfig({
     environment: "happy-dom",
     include: ["tests/unit/**/*.test.{ts,tsx}"],
     setupFiles: ["tests/unit/setup.ts"],
+    pool: "forks",
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },

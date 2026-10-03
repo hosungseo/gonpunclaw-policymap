@@ -8,6 +8,10 @@ describe("share url builders", () => {
     expect(buildEmbedUrl("http://localhost:3000", "abc123", "q=x")).toBe("http://localhost:3000/embed/abc123?q=x");
   });
 
+  it("strips trailing slashes from the origin", () => {
+    expect(buildMapUrl("https://x.com/", "s")).toBe("https://x.com/m/s");
+  });
+
   it("escapes html attribute characters", () => {
     expect(escapeHtmlAttr(`a"b<c>&'`)).toBe("a&quot;b&lt;c&gt;&amp;&#39;");
   });
@@ -19,5 +23,10 @@ describe("share url builders", () => {
     expect(snippet).toContain("aspect-ratio:4/3");
     expect(snippet).toContain('loading="lazy"');
     expect(snippet.startsWith("<iframe")).toBe(true);
+  });
+
+  it("escapes an ampersand in the search string within the src attribute", () => {
+    const snippet = buildEmbedSnippet({ origin: SITE_ORIGIN, slug: "abc123", title: "지도", search: "a=1&b=2" });
+    expect(snippet).toContain(`src="${SITE_ORIGIN}/embed/abc123?a=1&amp;b=2"`);
   });
 });

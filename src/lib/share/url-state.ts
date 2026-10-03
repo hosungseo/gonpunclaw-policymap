@@ -27,19 +27,7 @@ export const EMPTY_MAP_URL_STATE: MapUrlState = {
 
 const VIEWS: readonly MapViewMode[] = ["map", "table"];
 const BOUNDARIES: readonly MapBoundaryLevel[] = ["sido", "sigg", "emd"];
-const CATEGORY_SEPARATOR = ",";
-
-function encodeCategory(name: string): string {
-  return encodeURIComponent(name);
-}
-
-function decodeCategory(raw: string): string {
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-}
+const QUERY_MAX_LENGTH = 200;
 
 function parseNumber(raw: string | null): number | null {
   if (raw === null || raw.trim() === "") return null;
@@ -51,17 +39,17 @@ export function parseMapUrlState(input: string | URLSearchParams, known?: { cate
   const params = typeof input === "string" ? new URLSearchParams(input.replace(/^\?/, "")) : input;
   const state: MapUrlState = { ...EMPTY_MAP_URL_STATE };
 
-  const cat = params.get("cat");
-  if (cat !== null) {
-    const parsed = cat === "" ? [] : cat.split(CATEGORY_SEPARATOR).map(decodeCategory).filter((c) => c.length > 0);
-    state.categories = known?.categories ? parsed.filter((c) => known.categories!.includes(c)) : parsed;
+  if (params.has("cat")) {
+    const parsed = params.getAll("cat").filter((c) => c.length > 0);
+    const allowed = known?.categories;
+    state.categories = allowed ? parsed.filter((c) => allowed.includes(c)) : parsed;
   }
 
   const min = parseNumber(params.get("min"));
   const max = parseNumber(params.get("max"));
   if (min !== null && max !== null && min <= max) state.valueRange = [min, max];
 
-  state.query = (params.get("q") ?? "").slice(0, 200);
+  state.query = (params.get("q") ?? "").slice(0, QUERY_MAX_LENGTH);
 
   const view = params.get("view");
   if (view && (VIEWS as readonly string[]).includes(view)) state.view = view as MapViewMode;
@@ -79,12 +67,19 @@ export function parseMapUrlState(input: string | URLSearchParams, known?: { cate
 
 export function serializeMapUrlState(state: MapUrlState): string {
   const params = new URLSearchParams();
-  if (state.categories !== null) params.set("cat", state.categories.map(encodeCategory).join(CATEGORY_SEPARATOR));
+  if (state.categories !== null) {
+    if (state.categories.length === 0) {
+      params.set("cat", "");
+    } else {
+      for (const category of state.categories) params.append("cat", category);
+    }
+  }
   if (state.valueRange) {
     params.set("min", String(state.valueRange[0]));
     params.set("max", String(state.valueRange[1]));
   }
-  if (state.query.trim()) params.set("q", state.query.trim());
+  const query = state.query.trim().slice(0, QUERY_MAX_LENGTH);
+  if (query) params.set("q", query);
   if (state.view !== "map") params.set("view", state.view);
   if (state.boundary) params.set("bnd", state.boundary);
   if (state.policyLayer) params.set("pop", "1");

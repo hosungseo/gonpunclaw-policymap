@@ -1,3 +1,5 @@
+import { SITE_ORIGIN } from "@/lib/share/embed";
+
 const body = `# GonpunClaw PolicyMap
 
 > Upload an Excel file with addresses and publish a shareable policy map.
@@ -9,8 +11,8 @@ const body = `# GonpunClaw PolicyMap
 - Lets staff review reports and audit logs.
 
 ## Primary entry points
-- Home: https://gonpunclaw-policymap.vercel.app/
-- Upload: https://gonpunclaw-policymap.vercel.app/upload
+- Home: ${SITE_ORIGIN}/
+- Upload: ${SITE_ORIGIN}/upload
 - User guide: https://github.com/hosungseo/gonpunclaw-policymap/blob/main/docs/USER-GUIDE-KO.md
 - Source repository: https://github.com/hosungseo/gonpunclaw-policymap
 
