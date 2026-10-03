@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { loadPublicMapRecord, toMapClientProps } from "@/lib/maps/load-public-map";
+import { effectiveVisibility, loadPublicMapRecord, toMapClientProps } from "@/lib/maps/load-public-map";
 import { parseMapUrlStateFromSearchParams } from "@/lib/share/url-state";
 import { MapClient } from "./MapClient";
 
@@ -13,6 +13,8 @@ export async function generateMetadata(props: PageProps<"/m/[slug]">): Promise<M
   return {
     title: `${record.map.title} · GonpunClaw PolicyMap`,
     description: record.map.description ?? undefined,
+    // Link-only maps stay reachable but are kept out of search indexes.
+    ...(effectiveVisibility(record.map) === "unlisted" ? { robots: { index: false, follow: false } } : {}),
   };
 }
 

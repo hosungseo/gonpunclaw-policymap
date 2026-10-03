@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Everything except /embed/* may only be framed by this origin.
+        source: "/((?!embed/).*)",
+        headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'self'" }],
+      },
+      {
         // Embeds are meant to be framed by third-party sites.
         source: "/embed/:slug*",
         headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],

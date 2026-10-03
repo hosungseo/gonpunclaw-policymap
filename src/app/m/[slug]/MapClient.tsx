@@ -52,19 +52,21 @@ export interface MapClientProps {
   refreshCycle?: string | null;
   nextReviewAt?: string | null;
   lastDataUpdateAt?: string | null;
+  /** Server-formatted display label for `lastDataUpdateAt` (keeps SSR and hydration identical). */
+  lastDataUpdateLabel?: string | null;
   qualitySummary?: { total: number; review: number; excluded: number; failed?: number };
   markers: MarkerData[];
   isDemo?: boolean;
   /** Filter state parsed from the request URL on the server (shared links, embeds). */
   initialUrlState?: MapUrlState;
-  reviewBadge?: { status: "approved" | "pending"; versionNumber: number | null; decidedAt: string | null } | null;
+  reviewBadge?: { status: "approved" | "pending"; versionNumber: number | null; decidedAtLabel: string | null } | null;
   /** Compact chrome for iframe embedding and the reviewer preview. */
   embed?: boolean;
 }
 
 type ViewMode = "map" | "table";
 
-export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateAt, qualitySummary, markers, isDemo = false, initialUrlState, reviewBadge = null, embed = false }: MapClientProps) {
+export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateLabel, qualitySummary, markers, isDemo = false, initialUrlState, reviewBadge = null, embed = false }: MapClientProps) {
   const [map, setMap] = useState<MLMap | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(() => (initialUrlState?.categories ? new Set(initialUrlState.categories) : null));
   const [valueRange, setValueRange] = useState<[number, number] | null>(() => clampValueRange(initialUrlState?.valueRange, computeBaseValueRange(markers)));
@@ -223,9 +225,10 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
     map.flyTo({ center: [marker.lng, marker.lat], zoom: 13, essential: true });
   }
 
-  // In embed mode the tools panel always floats over the map (no desktop sidebar column).
+  // In embed mode the tools panel always floats over the map (no desktop sidebar column);
+  // the offset clears the always-visible toolbar and the footer bar.
   const asideFloating = showMobileTools
-    ? "absolute inset-x-3 top-[64px] z-20 max-h-[calc(100dvh-140px)] rounded-xl border shadow-xl"
+    ? "absolute inset-x-3 top-[96px] z-20 max-h-[calc(100dvh-230px)] rounded-xl border shadow-xl"
     : "hidden";
   const asideClass = embed
     ? `order-2 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950 ${asideFloating}`
@@ -258,7 +261,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
             <span>{visibility === "unlisted" ? "링크 보유자 공개" : "공개 지도"}</span>
             {reviewBadge?.status === "approved" && (
               <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                검토 완료{reviewBadge.versionNumber ? ` · v${reviewBadge.versionNumber}` : ""}{reviewBadge.decidedAt ? ` · ${new Date(reviewBadge.decidedAt).toLocaleDateString("ko-KR")}` : ""}
+                검토 완료{reviewBadge.versionNumber ? ` · v${reviewBadge.versionNumber}` : ""}{reviewBadge.decidedAtLabel ? ` · ${reviewBadge.decidedAtLabel}` : ""}
               </span>
             )}
             {reviewBadge?.status === "pending" && (
@@ -267,7 +270,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
             {sourceName && <span>출처: {sourceName}</span>}
             {dataAsOf && <span>기준일: {dataAsOf}</span>}
             {ownerDepartment && <span>관리: {ownerDepartment}</span>}
-            {lastDataUpdateAt && <span>갱신: {new Date(lastDataUpdateAt).toLocaleDateString("ko-KR")}</span>}
+            {lastDataUpdateLabel && <span>갱신: {lastDataUpdateLabel}</span>}
           </div>
         </div>
         {!embed && (

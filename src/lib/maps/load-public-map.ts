@@ -1,6 +1,7 @@
+import { cache } from "react";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { MapClientProps } from "@/app/m/[slug]/MapClient";
-import type { Visibility } from "@/lib/maps/metadata";
+import { formatKoreanDate, type Visibility } from "@/lib/maps/metadata";
 import { reviewStatus, type ReviewStatus } from "@/lib/reviews/gate";
 
 export const PUBLIC_MAP_FIELDS =
@@ -59,33 +60,48 @@ export function effectiveVisibility(map: Pick<PublicMapRow, "visibility" | "is_l
   return map.visibility ?? (map.is_listed ? "public" : "private");
 }
 
-export async function loadPublicMapRecord(slug: string, opts?: { allowPrivate?: boolean }): Promise<PublicMapRecord | null> {
-  const sb = supabaseServer();
-  const { data: map } = await sb.from("maps").select(PUBLIC_MAP_FIELDS).eq("slug", slug).maybeSingle();
-  if (!map) return null;
-  const row = map as unknown as PublicMapRow;
-  if (effectiveVisibility(row) === "private" && !opts?.allowPrivate) return null;
+/** Supabase query result shape; `error` is surfaced instead of being treated as an empty result. */
+interface QueryResult<T> {
+  data: T | null;
+  error: { message: string } | null;
+}
 
-  const status = reviewStatus(row);
-  const [{ data: markers }, { data: failures }, versionResult, reviewResult] = await Promise.all([
-    sb.from("markers").select("id, lat, lng, name, value, category, address_normalized, extra, quality_status, included").eq("map_id", row.id),
-    sb.from("geocode_failures").select("id").eq("map_id", row.id),
-    row.current_version_id
-      ? sb.from("map_versions").select("version_number").eq("id", row.current_version_id).maybeSingle()
-      : Promise.resolve({ data: null as { version_number: number } | null }),
-    status === "approved" && row.approved_version_id
-      ? sb.from("map_reviews").select("decided_at").eq("map_id", row.id).eq("status", "approved").eq("version_id", row.approved_version_id).order("decided_at", { ascending: false }).limit(1).maybeSingle()
-      : Promise.resolve({ data: null as { decided_at: string | null } | null }),
+function unwrap<T>(result: QueryResult<T>): T | null {
+  if (result.error) throw new Error(result.error.message);
+  return result.data;
+}
+
+/**
+ * Loads a map with its markers for the viewer, embed, reviewer and public API.
+ * Memoized per request with React `cache` so `generateMetadata` and the page share one fetch.
+ * Query errors throw so an outage or an unapplied migration fails loudly rather than rendering an empty map.
+ */
+export const loadPublicMapRecord = cache(async (slug: string, allowPrivate = false): Promise<PublicMapRecord | null> => {
+  const sb = supabaseServer();
+  const map = unwrap<PublicMapRow>(await sb.from("maps").select(PUBLIC_MAP_FIELDS).eq("slug", slug).maybeSingle() as unknown as QueryResult<PublicMapRow>);
+  if (!map) return null;
+  if (effectiveVisibility(map) === "private" && !allowPrivate) return null;
+
+  const status = reviewStatus(map);
+  const [markersResult, failuresResult, versionResult, reviewResult] = await Promise.all([
+    sb.from("markers").select("id, lat, lng, name, value, category, address_normalized, extra, quality_status, included").eq("map_id", map.id) as unknown as Promise<QueryResult<PublicMarkerRow[]>>,
+    sb.from("geocode_failures").select("id").eq("map_id", map.id) as unknown as Promise<QueryResult<{ id: string }[]>>,
+    map.current_version_id
+      ? (sb.from("map_versions").select("version_number").eq("id", map.current_version_id).maybeSingle() as unknown as Promise<QueryResult<{ version_number: number }>>)
+      : Promise.resolve<QueryResult<{ version_number: number }>>({ data: null, error: null }),
+    status === "approved" && map.approved_version_id
+      ? (sb.from("map_reviews").select("decided_at").eq("map_id", map.id).eq("status", "approved").eq("version_id", map.approved_version_id).order("decided_at", { ascending: false }).limit(1).maybeSingle() as unknown as Promise<QueryResult<{ decided_at: string | null }>>)
+      : Promise.resolve<QueryResult<{ decided_at: string | null }>>({ data: null, error: null }),
   ]);
 
   return {
-    map: row,
-    markers: (markers ?? []) as PublicMarkerRow[],
-    failedCount: failures?.length ?? 0,
-    versionNumber: versionResult.data?.version_number ?? null,
-    review: { status, decidedAt: reviewResult.data?.decided_at ?? null },
+    map,
+    markers: unwrap(markersResult) ?? [],
+    failedCount: unwrap(failuresResult)?.length ?? 0,
+    versionNumber: unwrap(versionResult)?.version_number ?? null,
+    review: { status, decidedAt: unwrap(reviewResult)?.decided_at ?? null },
   };
-}
+});
 
 export function toMapClientProps(record: PublicMapRecord): MapClientProps {
   const { map, markers } = record;
@@ -106,6 +122,7 @@ export function toMapClientProps(record: PublicMapRecord): MapClientProps {
     refreshCycle: map.refresh_cycle ?? null,
     nextReviewAt: map.next_review_at ?? null,
     lastDataUpdateAt: map.last_data_update_at ?? null,
+    lastDataUpdateLabel: formatKoreanDate(map.last_data_update_at),
     qualitySummary: {
       total: markers.length,
       review: markers.filter((m) => m.quality_status === "review").length,
@@ -114,7 +131,7 @@ export function toMapClientProps(record: PublicMapRecord): MapClientProps {
     },
     reviewBadge: record.review.status === "none"
       ? null
-      : { status: record.review.status, versionNumber: record.versionNumber, decidedAt: record.review.decidedAt },
+      : { status: record.review.status, versionNumber: record.versionNumber, decidedAtLabel: formatKoreanDate(record.review.decidedAt) },
     markers: markers.filter((m) => m.included !== false).map((m) => ({
       id: m.id,
       lat: m.lat,
