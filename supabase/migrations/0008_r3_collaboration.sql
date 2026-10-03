@@ -57,7 +57,20 @@ alter view public.public_directory_maps set (security_invoker = true);
 revoke all on public.public_directory_maps from anon, authenticated;
 
 -- Token hashes must never be selectable through PostgREST, even on public rows.
-revoke select (admin_token_hash, review_token_hash) on public.maps from anon, authenticated;
+-- Column-level REVOKE is a no-op while a table-level SELECT grant exists (Supabase default),
+-- so drop the table grant and re-grant every column except the token hashes.
+-- Columns added to maps later are not anon-readable until granted here (secure default);
+-- the app itself only uses the service role.
+revoke select on public.maps from anon, authenticated;
+grant select (
+  id, slug, title, description, value_label, value_unit, category_label, is_listed,
+  source_file, geocoder_stats, view_count, created_at, updated_at,
+  visibility, source_name, source_url, data_as_of, owner_department, contact, license,
+  refresh_cycle, next_review_at, published_at, last_data_update_at, metadata_confirmed_at,
+  public_extra_columns, column_mapping, source_retention_until,
+  current_version_id,
+  review_required, approved_version_id, directory_hidden, directory_hidden_at, directory_hidden_reason
+) on public.maps to anon, authenticated;
 
 create index if not exists maps_approved_version_idx on public.maps (approved_version_id);
 create index if not exists map_reviews_version_idx on public.map_reviews (version_id);

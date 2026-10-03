@@ -23,7 +23,11 @@ describe("0008_r3_collaboration migration", () => {
   });
   it("hardens the view and token hash columns against PostgREST exposure", () => {
     expect(sql).toContain("security_invoker = true");
-    expect(sql).toContain("revoke select (admin_token_hash, review_token_hash)");
+    expect(sql).toContain("revoke select on public.maps from anon, authenticated");
+    const grant = sql.slice(sql.indexOf("grant select ("), sql.indexOf(") on public.maps to anon, authenticated"));
+    expect(grant).not.toContain("admin_token_hash");
+    expect(grant).not.toContain("review_token_hash");
+    expect(grant).toContain("slug");
     expect(sql).toContain("maps_approved_version_idx");
     expect(sql).toContain("map_reviews_version_idx");
   });
