@@ -14,8 +14,15 @@ export type AuditAction =
   | "map.publish"
   | "map.version_restore"
   | "admin.auth_fail"
+  | "review.auth_fail"
   | "report.create"
-  | "report.update";
+  | "report.update"
+  | "map.directory_hide"
+  | "map.directory_show"
+  | "map.review_settings"
+  | "map.review_request"
+  | "map.review_approve"
+  | "map.review_reject";
 
 export interface AuditInput {
   action: AuditAction;

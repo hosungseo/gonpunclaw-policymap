@@ -61,3 +61,12 @@ export function metadataValidationErrors(input: MapMetadataInput): string[] {
 export function mapVisibilityToListed(visibility: Visibility): boolean {
   return visibility === "public";
 }
+
+const KOREAN_DATE_FORMAT = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium" });
+
+/** Formats an ISO timestamp as a Korean date on the server so client markup never depends on the viewer's locale/timezone. */
+export function formatKoreanDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : KOREAN_DATE_FORMAT.format(date);
+}

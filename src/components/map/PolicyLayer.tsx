@@ -2,18 +2,17 @@
 
 import { useEffect, useRef } from "react";
 import maplibregl, { type Map as MLMap } from "maplibre-gl";
-import { POPULATION_REGIONS, regionTypeLabel, type PopulationRegion, type PopulationRegionType } from "@/lib/policy-layers/population";
+import { POPULATION_REGIONS } from "@/lib/policy-layers/population";
+import {
+  findPopulationFeature,
+  loadPopulationFeatureCollection,
+  selectionFromFeature,
+  type PolicyRegionSelection,
+} from "@/lib/policy-layers/load-population-features";
+
+export type { PolicyRegionSelection } from "@/lib/policy-layers/load-population-features";
 
 export type PolicyLayerStatus = "idle" | "loading" | "ready" | "unavailable";
-
-export interface PolicyRegionSelection {
-  code: string;
-  name: string;
-  fullName: string;
-  regionType: PopulationRegionType;
-  sourceNotice: string;
-  geometry: GeoJSON.Geometry;
-}
 
 const SOURCE_ID = "population-policy-layer-src";
 const FILL_LAYER_ID = "population-policy-layer-fill";
@@ -26,6 +25,18 @@ function removeLayers(map: MLMap) {
     if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
   } catch {
     // MapLibre may clear the style before React cleanup runs.
+  }
+}
+
+function applySelectedState(map: MLMap, selectedCode: string | null) {
+  try {
+    if (!map.getSource(SOURCE_ID)) return;
+    for (const region of POPULATION_REGIONS) {
+      map.setFeatureState({ source: SOURCE_ID, id: region.lawdCd }, { selected: region.lawdCd === selectedCode });
+    }
+  } catch {
+    // Best-effort: the source may still be loading, or the map instance may already be
+    // removed (MapView unmounts on the table view before MapClient receives the new map).
   }
 }
 
@@ -55,57 +66,41 @@ function boundsFromGeometry(geometry: GeoJSON.Geometry): maplibregl.LngLatBounds
   return found && !bounds.isEmpty() ? bounds : null;
 }
 
-function buildFeatureCollection() {
-  const knownCodes = new Set(POPULATION_REGIONS.map((region) => region.lawdCd));
-  return fetch("/data/sigg-boundaries.geojson").then(async (response) => {
-    if (!response.ok) throw new Error("boundary fetch failed");
-    const data = await response.json() as GeoJSON.FeatureCollection;
-    return {
-      type: "FeatureCollection",
-      features: data.features
-        .filter((feature) => knownCodes.has(String(feature.properties?.sig_cd ?? "")))
-        .map((feature) => {
-          const code = String(feature.properties?.sig_cd ?? "");
-          const region = POPULATION_REGIONS.find((item) => item.lawdCd === code);
-          if (!region) return null;
-          return {
-            ...feature,
-            id: code,
-            properties: {
-              ...feature.properties,
-              policy_code: code,
-              policy_type: region.regionType,
-              policy_type_label: regionTypeLabel(region.regionType),
-              policy_source_notice: region.sourceNotice,
-            },
-          };
-        })
-        .filter((feature) => feature !== null) as GeoJSON.Feature[],
-    } as GeoJSON.FeatureCollection;
-  });
-}
-
 export function PolicyLayer({
   map,
   enabled,
   selectedCode,
+  frameSelection = true,
   onSelect,
   onStatusChange,
 }: {
   map: MLMap | null;
   enabled: boolean;
   selectedCode: string | null;
+  /** Frame the pre-selected region once when the layer becomes ready (off while a marker focus is pending). */
+  frameSelection?: boolean;
   onSelect: (selection: PolicyRegionSelection | null) => void;
   onStatusChange?: (status: PolicyLayerStatus) => void;
 }) {
   const onSelectRef = useRef(onSelect);
+  const selectedCodeRef = useRef(selectedCode);
+  const frameSelectionRef = useRef(frameSelection);
+  // Frames the already-selected region once per enable cycle (e.g. a region restored from a shared URL).
+  const framedRef = useRef(false);
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
+  useEffect(() => {
+    selectedCodeRef.current = selectedCode;
+  }, [selectedCode]);
+  useEffect(() => {
+    frameSelectionRef.current = frameSelection;
+  }, [frameSelection]);
 
   useEffect(() => {
     if (!map) return;
     if (!enabled) {
+      framedRef.current = false;
       removeLayers(map);
       onStatusChange?.("idle");
       return;
@@ -113,7 +108,7 @@ export function PolicyLayer({
 
     let disposed = false;
     onStatusChange?.("loading");
-    buildFeatureCollection()
+    loadPopulationFeatureCollection()
       .then((featureCollection) => {
         if (disposed) return;
         removeLayers(map);
@@ -140,17 +135,8 @@ export function PolicyLayer({
         map.on("click", FILL_LAYER_ID, (event) => {
           const feature = event.features?.[0];
           if (!feature) return;
-          const code = String(feature.properties?.policy_code ?? "");
-          const region: PopulationRegion | undefined = POPULATION_REGIONS.find((item) => item.lawdCd === code);
-          if (!region) return;
-          const selection: PolicyRegionSelection = {
-            code,
-            name: region.name,
-            fullName: String(feature.properties?.full_nm ?? `${region.normalizedProvince} ${region.name}`),
-            regionType: region.regionType,
-            sourceNotice: region.sourceNotice,
-            geometry: feature.geometry as GeoJSON.Geometry,
-          };
+          const selection = selectionFromFeature(feature as GeoJSON.Feature);
+          if (!selection) return;
           onSelectRef.current(selection);
           const bounds = boundsFromGeometry(selection.geometry);
           if (bounds) map.fitBounds(bounds, { padding: 48, maxZoom: 10, duration: 500 });
@@ -158,6 +144,17 @@ export function PolicyLayer({
         map.on("mouseenter", FILL_LAYER_ID, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", FILL_LAYER_ID, () => { map.getCanvas().style.cursor = ""; });
         onStatusChange?.("ready");
+
+        // A selection made before the layer was ready (shared URL, or remount after the table view)
+        // needs its highlight applied and, once, the viewport framed on it.
+        const currentCode = selectedCodeRef.current;
+        applySelectedState(map, currentCode);
+        if (currentCode && frameSelectionRef.current && !framedRef.current) {
+          framedRef.current = true;
+          const feature = findPopulationFeature(featureCollection, currentCode);
+          const bounds = feature ? boundsFromGeometry(feature.geometry) : null;
+          if (bounds) map.fitBounds(bounds, { padding: 48, maxZoom: 10, duration: 0 });
+        }
       })
       .catch(() => {
         if (!disposed) {
@@ -174,15 +171,7 @@ export function PolicyLayer({
 
   useEffect(() => {
     if (!map || !enabled) return;
-    const source = map.getSource(SOURCE_ID);
-    if (!source) return;
-    for (const region of POPULATION_REGIONS) {
-      try {
-        map.setFeatureState({ source: SOURCE_ID, id: region.lawdCd }, { selected: region.lawdCd === selectedCode });
-      } catch {
-        // Feature state is best-effort while the async source is loading.
-      }
-    }
+    applySelectedState(map, selectedCode);
   }, [enabled, map, selectedCode]);
 
   useEffect(() => () => { if (map) removeLayers(map); }, [map]);

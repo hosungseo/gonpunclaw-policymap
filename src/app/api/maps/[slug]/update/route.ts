@@ -5,6 +5,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
 import { isIsoDate, isVisibility, metadataValidationErrors, type Visibility } from "@/lib/maps/metadata";
+import { reviewGate } from "@/lib/reviews/gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -178,14 +179,22 @@ export async function POST(
   if (body.is_listed !== undefined || body.visibility !== undefined || metadataFields.some((field) => body[field] !== undefined)) {
     const { data: prev } = await sb
       .from("maps")
-      .select("is_listed, visibility, title, description, source_name, source_url, data_as_of, owner_department")
+      .select("is_listed, visibility, title, description, source_name, source_url, data_as_of, owner_department, review_required, approved_version_id, current_version_id")
       .eq("id", auth.mapId)
       .single();
-    if (prev) {
-      previousIsListed = prev.is_listed;
-      previousMap = prev as Record<string, unknown>;
-    }
+    // Fail closed: without the stored state the review gate cannot be evaluated, so never let a
+    // visibility/metadata change through on a transient read failure.
+    if (!prev) return jsonError("MAP_LOAD_FAILED", "지도 상태를 불러오지 못했습니다.", 500);
+    previousIsListed = prev.is_listed;
+    previousMap = prev as Record<string, unknown>;
   }
+
+  // Reviewed metadata changed → the previous approval no longer covers what will be shown; clear it in the same write.
+  const reviewedMetadataChanged = metadataFields.some((field) =>
+    Object.prototype.hasOwnProperty.call(update, field) && (update[field] ?? null) !== (previousMap[field] ?? null),
+  );
+  if (previousMap.review_required === true && reviewedMetadataChanged) update.approved_version_id = null;
+  const approvedVersionId = update.approved_version_id === null ? null : ((previousMap.approved_version_id as string | null) ?? null);
 
   const currentVisibility = isVisibility(previousMap.visibility) ? previousMap.visibility : previousMap.is_listed ? "public" : "private";
   const nextVisibility = body.visibility ?? (body.is_listed !== undefined ? (body.is_listed ? "public" : "private") : (Object.keys(previousMap).length > 0 ? currentVisibility : null));
@@ -201,6 +210,15 @@ export async function POST(
       visibility: nextVisibility,
     });
     if (validation.length > 0) return jsonError("METADATA_REQUIRED", `공개 범위로 전환하려면 다음 항목이 필요합니다: ${validation.join(", ")}`, 400);
+    // Opt-in review gate: rejects the whole request before any write when private → public/unlisted is unapproved.
+    // Uses the post-invalidation approval so one request cannot both change reviewed metadata and go public.
+    const gate = reviewGate({
+      review_required: Boolean(previousMap.review_required),
+      approved_version_id: approvedVersionId,
+      current_version_id: (previousMap.current_version_id as string | null) ?? null,
+      visibility: currentVisibility,
+    }, nextVisibility);
+    if (!gate.ok) return jsonError(gate.code, gate.message, 409);
   }
 
   const { data, error } = await sb

@@ -23,8 +23,15 @@ const AUDIT_ACTIONS = [
   "upload_job.create",
   "upload_job.complete",
   "admin.auth_fail",
+  "review.auth_fail",
   "report.create",
   "report.update",
+  "map.review_settings",
+  "map.review_request",
+  "map.review_approve",
+  "map.review_reject",
+  "map.directory_hide",
+  "map.directory_show",
 ] as const;
 const DEFAULT_LIMIT = 100;
 const MIN_LIMIT = 1;

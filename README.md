@@ -74,6 +74,10 @@ GonpunClaw PolicyMap은 기존 업무 엑셀을 업로드하면 열 역할과 �
 | 정책 기준 레이어 | 행정안전부 기준 인구감소지역 89개·관심지역 18개 선택 및 지역별 필터 |
 | 업무 템플릿 | 복지시설, 생활SOC, 사회적경제기업, 빈집·유휴공간, 안전점검, 관광자원 XLSX |
 | 버전 관리 | 데이터 교체·발행 스냅샷, 추가·삭제·변경·좌표 변경 요약, 이전 버전 복원 |
+| 공유·임베드 | 필터 상태를 담은 공유 링크, 반응형 iframe 코드, `/embed/[slug]` |
+| 공개 데이터 API | 공개·링크공개 지도의 JSON·GeoJSON, 디렉터리 목록 API ([문서](./docs/PUBLIC-API.md)) |
+| 공개 지도 디렉터리 | `/maps`에서 공개 지도 검색·탐색, 스태프 숨김 처리 |
+| 검토·승인 | 지도별 '공개 전 검토 필수' 옵션, 검토 링크 발급, 체크리스트 승인·반려, 승인 버전만 공개 전환 |
 | 사전 체험 | 샘플 지도로 업로드 전 결과 화면 확인 |
 | 관리 | 관리 토큰으로 제목, 설명, 컬럼 라벨, 공개 여부, 엑셀 데이터 교체, CSV 내보내기, 실패 주소 재시도, 삭제 |
 | 운영 | 신고 상태 관리, 감사 로그, DB 기반 요청 제한, 업로드 작업 자동 재개/정리 |
@@ -101,6 +105,10 @@ GonpunClaw PolicyMap은 기존 업무 엑셀을 업로드하면 열 역할과 �
 - `/m/[slug]` — 공개 지도 검색, 필터, 범례, 표 보기
 - `/manage/[slug]` — 업로드한 지도 정보 수정, 엑셀 데이터 교체, CSV 내보내기, 실패 주소 재시도, 비공개 전환 및 삭제
 - `/manage/[slug]/versions` — 버전별 변경점 확인 및 이전 버전 복원
+- `/maps` — 공개 지도 디렉터리 (검색, 검토 완료 배지)
+- `/embed/[slug]` — iframe 임베드용 축소 화면
+- `/review/[slug]` — 검토 링크로 여는 승인·반려 화면
+- `/api/public/maps…` — 공개 데이터 API ([`docs/PUBLIC-API.md`](./docs/PUBLIC-API.md))
 
 ## 파일 형식
 
@@ -251,5 +259,7 @@ Cron 주기로 조정합니다.
 ## 문서
 
 - [사용자 가이드](./docs/USER-GUIDE-KO.md)
+- [공개 데이터 API](./docs/PUBLIC-API.md)
+- [R3 구현 메모](./docs/R3-IMPLEMENTATION.md)
 - [XLSX 템플릿](./docs/sample-upload-template.xlsx)
 - [CSV 샘플](./docs/sample-upload-template.csv)

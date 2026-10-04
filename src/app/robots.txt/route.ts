@@ -1,4 +1,6 @@
-const baseUrl = "https://gonpunclaw-policymap.vercel.app";
+import { SITE_ORIGIN } from "@/lib/share/embed";
+
+const baseUrl = SITE_ORIGIN;
 
 const body = `User-Agent: *
 Allow: /

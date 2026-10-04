@@ -129,9 +129,15 @@ export async function POST(
     .eq("id", auth.mapId)
     .single();
   const geocoderStats = mergeGeocoderStats(mapRow?.geocoder_stats ?? {}, result.stats);
+  const now = new Date().toISOString();
   await sb
     .from("maps")
-    .update({ geocoder_stats: geocoderStats, updated_at: new Date().toISOString() })
+    .update({
+      geocoder_stats: geocoderStats,
+      updated_at: now,
+      // New markers change the public payload, so bump the data timestamp that feeds the public ETag.
+      ...(result.successes.length > 0 ? { last_data_update_at: now } : {}),
+    })
     .eq("id", auth.mapId);
 
   const remaining = retryRows.length - result.successes.length;

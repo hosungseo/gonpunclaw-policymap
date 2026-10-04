@@ -49,6 +49,11 @@ function buildPopupHtml(
 
 export function MarkerLayer({ map, markers, valueLabel, valueUnit, categoryLabel, filterCategories, valueRange, focusedMarkerId }: MarkerLayerProps) {
   const didFitInitialBounds = useRef(false);
+  // Read by the source effect without re-running it: a pending focus wins over the initial fit.
+  const focusedIdRef = useRef<string | null>(focusedMarkerId ?? null);
+  useEffect(() => {
+    focusedIdRef.current = focusedMarkerId ?? null;
+  }, [focusedMarkerId]);
 
   useEffect(() => {
     if (!map) return;
@@ -137,7 +142,7 @@ export function MarkerLayer({ map, markers, valueLabel, valueUnit, categoryLabel
       map.on("mouseleave", "points", () => (map.getCanvas().style.cursor = ""));
     }
 
-    if (!didFitInitialBounds.current && filtered.length > 0) {
+    if (!didFitInitialBounds.current && !focusedIdRef.current && filtered.length > 0) {
       const bounds = new maplibregl.LngLatBounds();
       for (const m of filtered) bounds.extend([m.lng, m.lat]);
       if (!bounds.isEmpty()) {
@@ -165,6 +170,9 @@ export function MarkerLayer({ map, markers, valueLabel, valueUnit, categoryLabel
       .setLngLat([marker.lng, marker.lat])
       .setHTML(buildPopupHtml(properties, valueLabel, valueUnit, categoryLabel))
       .addTo(map);
+    // A freshly mounted map (after the table view) should open on the focused row, not on all markers.
+    map.flyTo({ center: [marker.lng, marker.lat], zoom: 13, essential: true });
+    didFitInitialBounds.current = true;
   }, [map, markers, focusedMarkerId, valueLabel, valueUnit, categoryLabel]);
 
   return null;

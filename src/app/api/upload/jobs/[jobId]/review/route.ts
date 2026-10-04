@@ -106,11 +106,13 @@ export async function POST(req: Request, context: { params: Promise<{ jobId: str
     } else {
       if (failure) await sb.from("geocode_failures").update({ address_current: address, address_raw: failure.address_raw, reason: result.failures[0]?.reason ?? "ALL_FAILED", attempted_providers: result.failures[0]?.attempted ?? [] }).eq("id", failure.id);
       else if (marker) await sb.from("markers").update({ address_raw: address, original_address: marker.original_address ?? marker.address_raw, quality_status: "review", quality_reason: "ADDRESS_RETRY_FAILED", included: false, updated_at: new Date().toISOString() }).eq("id", marker.id);
+      if (marker) await touchMapData(sb, loaded.job.map_id);
       return NextResponse.json({ ok: true, row_index: rowIndex, status: "failed", message: "수정한 주소도 변환에 실패했습니다." });
     }
   }
 
   await refreshDuplicateQuality(sb, loaded.job.map_id);
+  await touchMapData(sb, loaded.job.map_id);
   const { data: reviewCountRows } = await sb.from("markers").select("quality_status, included").eq("map_id", loaded.job.map_id);
   const { data: failureCountRows } = await sb.from("geocode_failures").select("included").eq("map_id", loaded.job.map_id);
   await sb.from("upload_jobs").update({
@@ -127,6 +129,15 @@ async function shortHash(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest)).slice(0, 8).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Marker corrections change what the public viewer and API show, so bump `last_data_update_at`
+ * (part of the public ETag). The job token outlives publish, so the map may already be public here.
+ */
+async function touchMapData(sb: ReturnType<typeof supabaseServer>, mapId: string) {
+  const now = new Date().toISOString();
+  await sb.from("maps").update({ last_data_update_at: now, updated_at: now }).eq("id", mapId);
 }
 
 async function refreshDuplicateQuality(sb: ReturnType<typeof supabaseServer>, mapId: string) {

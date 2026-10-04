@@ -200,6 +200,7 @@ export default function Home() {
             <a href="#workflow">흐름</a>
             <a href="#capabilities">검토 기준</a>
             <Link href="/templates">템플릿</Link>
+            <Link href="/maps">공개 지도</Link>
             <Link href="/guide">가이드</Link>
           </nav>
           <Link href="/upload" className={styles.headerCta}>취합본 업로드 <span>↗</span></Link>
@@ -317,6 +318,7 @@ export default function Home() {
         <Link href="/" className={styles.footerBrand}>GonpunClaw PolicyMap</Link>
         <p>공공 데이터를 설명 가능한 지도로.</p>
         <nav aria-label="하단 메뉴">
+          <Link href="/maps">공개 지도</Link>
           <Link href="/templates">템플릿</Link>
           <Link href="/guide">가이드</Link>
           <Link href="/llms.txt">llms.txt</Link>

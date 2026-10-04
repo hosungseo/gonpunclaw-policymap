@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NextRequest } from "next/server";
 
 const mockUpdateSingle = vi.fn();
+const mockUpdatePayload = vi.fn();
 const mockPrevSingle = vi.fn();
 const mockAuditInsert = vi.fn();
 const mockVerify = vi.fn();
@@ -22,13 +23,16 @@ vi.mock("@/lib/supabase/server", () => ({
         return { insert: (row: unknown) => mockAuditInsert(row) };
       }
       return {
-        update: () => ({
-          eq: () => ({
-            select: () => ({
-              single: mockUpdateSingle,
+        update: (payload: unknown) => {
+          mockUpdatePayload(payload);
+          return {
+            eq: () => ({
+              select: () => ({
+                single: mockUpdateSingle,
+              }),
             }),
-          }),
-        }),
+          };
+        },
         select: () => ({
           eq: () => ({
             single: mockPrevSingle,
@@ -55,6 +59,7 @@ async function callRoute(body: unknown, ip?: string) {
 describe("POST /api/maps/[slug]/update", () => {
   beforeEach(() => {
     mockUpdateSingle.mockReset();
+    mockUpdatePayload.mockReset();
     mockPrevSingle.mockReset();
     mockAuditInsert.mockReset();
     mockVerify.mockReset();
@@ -201,5 +206,72 @@ describe("POST /api/maps/[slug]/update", () => {
     expect(audit.details.is_listed_before).toBeUndefined();
     expect(audit.details.is_listed_after).toBeUndefined();
     expect(audit.details.changed_fields).toEqual(["title"]);
+  });
+
+  it("blocks private→public with 409 REVIEW_REQUIRED when review is required and unapproved", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: { is_listed: false, visibility: "private", title: "t", description: "", source_name: "s", source_url: null, data_as_of: "2026-01-01", owner_department: "o", review_required: true, approved_version_id: null, current_version_id: "v1" } });
+    const res = await callRoute({ admin_token: "t", visibility: "public", title: "new title" }, "10.0.0.21");
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("REVIEW_REQUIRED");
+    expect(mockUpdateSingle).not.toHaveBeenCalled();
+  });
+
+  it("allows private→public when the current version is approved", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: { is_listed: false, visibility: "private", title: "t", description: "", source_name: "s", source_url: null, data_as_of: "2026-01-01", owner_department: "o", review_required: true, approved_version_id: "v1", current_version_id: "v1" } });
+    mockUpdateSingle.mockResolvedValueOnce({ data: { slug: "testslug", title: "t", description: "", value_label: null, value_unit: null, category_label: null, is_listed: true, visibility: "public" }, error: null });
+    const res = await callRoute({ admin_token: "t", visibility: "public" }, "10.0.0.22");
+    expect(res.status).toBe(200);
+  });
+
+  const reviewedPrev = { is_listed: false, visibility: "private", title: "t", description: "", source_name: "s", source_url: null, data_as_of: "2026-01-01", owner_department: "o", review_required: true, approved_version_id: "v1", current_version_id: "v1" };
+  const updated = { slug: "testslug", title: "t", description: "", value_label: null, value_unit: null, category_label: null, is_listed: false, visibility: "private" };
+
+  it("clears approved_version_id when reviewed metadata actually changes", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: reviewedPrev });
+    mockUpdateSingle.mockResolvedValueOnce({ data: updated, error: null });
+    const res = await callRoute({ admin_token: "t", source_name: "new source" }, "10.0.0.23");
+    expect(res.status).toBe(200);
+    expect(mockUpdatePayload.mock.calls[0][0]).toMatchObject({ source_name: "new source", approved_version_id: null });
+  });
+
+  it("keeps the approval when reviewed metadata is resubmitted unchanged", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: reviewedPrev });
+    mockUpdateSingle.mockResolvedValueOnce({ data: updated, error: null });
+    const res = await callRoute({ admin_token: "t", source_name: "  s  ", source_url: "" }, "10.0.0.24");
+    expect(res.status).toBe(200);
+    expect(mockUpdatePayload.mock.calls[0][0]).not.toHaveProperty("approved_version_id");
+  });
+
+  it("does not touch approved_version_id when review is not required", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: { ...reviewedPrev, review_required: false } });
+    mockUpdateSingle.mockResolvedValueOnce({ data: updated, error: null });
+    const res = await callRoute({ admin_token: "t", source_name: "new source" }, "10.0.0.25");
+    expect(res.status).toBe(200);
+    expect(mockUpdatePayload.mock.calls[0][0]).not.toHaveProperty("approved_version_id");
+  });
+
+  it("gates private→public in the same request that changes reviewed metadata", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: reviewedPrev });
+    const res = await callRoute({ admin_token: "t", visibility: "public", source_name: "new source" }, "10.0.0.26");
+    expect(res.status).toBe(409);
+    expect(mockUpdateSingle).not.toHaveBeenCalled();
+  });
+
+  it("fails closed with 500 MAP_LOAD_FAILED when the stored map state cannot be read", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: null, error: { message: "transient" } });
+    const res = await callRoute({ admin_token: "t", visibility: "public" }, "10.0.0.27");
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("MAP_LOAD_FAILED");
+    expect(mockUpdateSingle).not.toHaveBeenCalled();
+    expect(mockRecordAudit).not.toHaveBeenCalled();
   });
 });

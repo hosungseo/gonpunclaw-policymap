@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { EMPTY_REVIEW, ReviewSection, type ManagedReview } from "./ReviewSection";
+
+export type { ManagedReview, ManagedReviewLatest } from "./ReviewSection";
 
 export type ManagedMap = {
   title: string;
@@ -20,7 +23,12 @@ export type ManagedMap = {
   refresh_cycle?: string;
   next_review_at?: string;
   last_data_update_at?: string;
+  review?: ManagedReview;
+  directory?: { hidden: boolean; reason: string | null };
 };
+
+// Editing any of these invalidates a standing approval (the update route clears approved_version_id).
+const REVIEW_SENSITIVE_FIELDS = ["source_name", "source_url", "data_as_of", "owner_department"] as const;
 
 type EditStatus =
   | { kind: "idle" }
@@ -52,6 +60,12 @@ const LABEL_MAX = 40;
 
 export function ManageForm({ slug, initial }: { slug: string; initial: ManagedMap | null }) {
   const [token, setToken] = useState("");
+  const [review, setReview] = useState<ManagedReview>(initial?.review ?? EMPTY_REVIEW);
+
+  // Mirror the server-side rule locally so the status pill does not keep showing a stale approval.
+  function onReviewInvalidated() {
+    setReview((r) => (r.required && r.status === "approved" ? { ...r, status: "stale", approvedVersionNumber: null } : r));
+  }
 
   if (!initial) {
     return (
@@ -88,17 +102,28 @@ export function ManageForm({ slug, initial }: { slug: string; initial: ManagedMa
         </p>
       </div>
 
-      <EditSection slug={slug} initial={initial} token={token} />
-      <ReplaceDataSection slug={slug} token={token} />
+      {initial.directory?.hidden && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+          <p className="font-semibold">이 지도는 공개 디렉터리에서 숨김 처리되어 있습니다.</p>
+          {initial.directory.reason && <p className="mt-1 text-xs">사유: {initial.directory.reason}</p>}
+          <p className="mt-1 text-xs">지도 링크와 임베드, 단건 API는 그대로 동작합니다. 문의는 서비스 안내 페이지의 연락처로 보내 주세요.</p>
+        </div>
+      )}
+
+      <EditSection slug={slug} initial={initial} token={token} onReviewInvalidated={onReviewInvalidated} />
+      <ReviewSection slug={slug} token={token} review={review} setReview={setReview} />
+      <ReplaceDataSection slug={slug} token={token} onReviewInvalidated={onReviewInvalidated} />
       <DataToolsSection slug={slug} token={token} />
       <DeleteSection slug={slug} title={initial.title} token={token} />
     </div>
   );
 }
 
-function EditSection({ slug, initial, token }: { slug: string; initial: ManagedMap; token: string }) {
+function EditSection({ slug, initial, token, onReviewInvalidated }: { slug: string; initial: ManagedMap; token: string; onReviewInvalidated: () => void }) {
   const [values, setValues] = useState<ManagedMap>(initial);
   const [status, setStatus] = useState<EditStatus>({ kind: "idle" });
+  // Last values the server accepted, for detecting review-sensitive changes on the next save.
+  const savedRef = useRef<ManagedMap>(initial);
 
   function update<K extends keyof ManagedMap>(key: K, value: ManagedMap[K]) {
     setValues((v) => ({ ...v, [key]: value }));
@@ -149,16 +174,21 @@ function EditSection({ slug, initial, token }: { slug: string; initial: ManagedM
 
     const json = (await res.json().catch(() => null)) as
       | { ok: true; map: ManagedMap & { slug: string } }
-      | { ok: false; error?: { message?: string } }
+      | { ok: false; error?: { code?: string; message?: string } }
       | null;
 
     if (!res.ok || !json?.ok) {
-      const message = json && json.ok === false ? json.error?.message ?? "수정에 실패했습니다." : "수정에 실패했습니다.";
+      const err = json && json.ok === false ? json.error : undefined;
+      const message = err?.message ?? "수정에 실패했습니다.";
       setStatus({ kind: "error", message });
+      // The review gate blocked the visibility change: bring the review controls into view.
+      if (err?.code === "REVIEW_REQUIRED") document.getElementById("review-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
-    setValues({
+    const previous = savedRef.current;
+    const reviewFieldsChanged = REVIEW_SENSITIVE_FIELDS.some((key) => (values[key] ?? "").trim() !== (previous[key] ?? "").trim());
+    const next: ManagedMap = {
       title: json.map.title,
       description: json.map.description ?? "",
       value_label: json.map.value_label ?? "",
@@ -175,7 +205,10 @@ function EditSection({ slug, initial, token }: { slug: string; initial: ManagedM
       refresh_cycle: json.map.refresh_cycle ?? "",
       next_review_at: json.map.next_review_at ?? "",
       last_data_update_at: json.map.last_data_update_at ?? "",
-    });
+    };
+    savedRef.current = next;
+    setValues(next);
+    if (reviewFieldsChanged) onReviewInvalidated();
     setStatus({ kind: "saved" });
   }
 
@@ -338,7 +371,7 @@ function ManagedTextInput({ label, value, onChange, placeholder, type = "text" }
   );
 }
 
-function ReplaceDataSection({ slug, token }: { slug: string; token: string }) {
+function ReplaceDataSection({ slug, token, onReviewInvalidated }: { slug: string; token: string; onReviewInvalidated: () => void }) {
   const [status, setStatus] = useState<ReplaceStatus>({ kind: "idle" });
   const [fileName, setFileName] = useState("");
   const [sensitiveConfirmed, setSensitiveConfirmed] = useState(false);
@@ -377,6 +410,8 @@ function ReplaceDataSection({ slug, token }: { slug: string; token: string }) {
       setStatus({ kind: "error", message });
       return;
     }
+    // Replacing data creates a new version, which the gate treats as unreviewed.
+    onReviewInvalidated();
     setStatus({ kind: "success", inserted: json.inserted, failed: json.failed });
   }
 

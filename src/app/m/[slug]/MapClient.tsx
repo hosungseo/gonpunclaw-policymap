@@ -11,18 +11,28 @@ import { Legend } from "@/components/map/Legend";
 import { MapInsights } from "@/components/map/MapInsights";
 import { PolicyLayer, type PolicyLayerStatus, type PolicyRegionSelection } from "@/components/map/PolicyLayer";
 import { ReportForm } from "@/components/map/ReportForm";
+import { SharePanel } from "@/components/map/SharePanel";
 import { filterMarkersForDisplay } from "@/components/map/filterMarkers";
 import { pointInGeometry } from "@/lib/policy-layers/geometry";
+import { findPopulationFeature, loadPopulationFeatureCollection, selectionFromFeature } from "@/lib/policy-layers/load-population-features";
 import { POPULATION_LAYER_META, regionTypeLabel } from "@/lib/policy-layers/population";
+import { serializeMapUrlState, type MapUrlState } from "@/lib/share/url-state";
 
-async function copyText(text: string) {
-  if (typeof navigator === "undefined" || !navigator.clipboard) return false;
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
+// Query keys owned by the viewer; anything else in the address bar is preserved on write-back.
+const MAP_URL_KEYS = ["cat", "min", "max", "q", "view", "bnd", "pop", "region"] as const;
+
+function computeBaseValueRange(markers: MarkerData[]): [number, number] | null {
+  const values = markers.map((m) => m.value).filter((v): v is number => v != null);
+  if (values.length === 0) return null;
+  return [Math.min(...values), Math.max(...values)];
+}
+
+/** Clamps a shared value range to the data's own range; null when nothing valid remains. */
+function clampValueRange(range: [number, number] | null | undefined, base: [number, number] | null): [number, number] | null {
+  if (!range || !base) return null;
+  const min = Math.max(range[0], base[0]);
+  const max = Math.min(range[1], base[1]);
+  return min <= max ? [min, max] : null;
 }
 
 export interface MapClientProps {
@@ -41,36 +51,57 @@ export interface MapClientProps {
   license?: string | null;
   refreshCycle?: string | null;
   nextReviewAt?: string | null;
-  lastDataUpdateAt?: string | null;
+  /** Server-formatted display label for the last data update (keeps SSR and hydration identical). */
+  lastDataUpdateLabel?: string | null;
   qualitySummary?: { total: number; review: number; excluded: number; failed?: number };
   markers: MarkerData[];
   isDemo?: boolean;
+  /** Filter state parsed from the request URL on the server (shared links, embeds). */
+  initialUrlState?: MapUrlState;
+  reviewBadge?: { status: "approved" | "pending"; versionNumber: number | null; decidedAtLabel: string | null } | null;
+  /** Compact chrome for iframe embedding and the reviewer preview. */
+  embed?: boolean;
+  /** Show the "open in PolicyMap" footer link in embed mode. Off for private maps under review (the link would 404). */
+  embedOpenLink?: boolean;
 }
 
 type ViewMode = "map" | "table";
 
-export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateAt, qualitySummary, markers, isDemo = false }: MapClientProps) {
+export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateLabel, qualitySummary, markers, isDemo = false, initialUrlState, reviewBadge = null, embed = false, embedOpenLink = true }: MapClientProps) {
   const [map, setMap] = useState<MLMap | null>(null);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(null);
-  const [valueRange, setValueRange] = useState<[number, number] | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("map");
+  const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(() => (initialUrlState?.categories ? new Set(initialUrlState.categories) : null));
+  const [valueRange, setValueRange] = useState<[number, number] | null>(() => clampValueRange(initialUrlState?.valueRange, computeBaseValueRange(markers)));
+  const [searchQuery, setSearchQuery] = useState(initialUrlState?.query ?? "");
+  const [viewMode, setViewMode] = useState<ViewMode>(initialUrlState?.view ?? "map");
   const [focusedMarkerId, setFocusedMarkerId] = useState<string | null>(null);
   const [showMobileTools, setShowMobileTools] = useState(false);
-  const [showBoundaries, setShowBoundaries] = useState(false);
-  const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>("sido");
-  const [boundaryStatus, setBoundaryStatus] = useState<BoundaryLayerStatus>("idle");
-  const [showPolicyLayer, setShowPolicyLayer] = useState(false);
+  const [showBoundaries, setShowBoundaries] = useState(Boolean(initialUrlState?.boundary));
+  const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>(initialUrlState?.boundary ?? "sido");
+  const [boundaryStatus, setBoundaryStatus] = useState<BoundaryLayerStatus>(initialUrlState?.boundary ? "loading" : "idle");
+  const [showPolicyLayer, setShowPolicyLayer] = useState(initialUrlState?.policyLayer ?? false);
   const [policyLayerStatus, setPolicyLayerStatus] = useState<PolicyLayerStatus>("idle");
   const [selectedPolicyRegion, setSelectedPolicyRegion] = useState<PolicyRegionSelection | null>(null);
+  // Region code from the shared URL that still has to be resolved to a polygon.
+  const [pendingRegion, setPendingRegion] = useState<string | null>(initialUrlState?.region ?? null);
   const [viewportBounds, setViewportBounds] = useState<[number, number, number, number] | null>(null);
 
-  async function handleCopy() {
-    const ok = await copyText(typeof window === "undefined" ? `/m/${slug}` : window.location.href);
-    setCopied(ok);
-    if (ok) window.setTimeout(() => setCopied(false), 1500);
-  }
+  // Resolve the shared region without depending on the map being mounted (table view included).
+  useEffect(() => {
+    if (!pendingRegion) return;
+    let cancelled = false;
+    loadPopulationFeatureCollection()
+      .then((collection) => {
+        if (cancelled) return;
+        const feature = findPopulationFeature(collection, pendingRegion);
+        const selection = feature ? selectionFromFeature(feature) : null;
+        if (selection) setSelectedPolicyRegion(selection);
+        setPendingRegion(null);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingRegion(null);
+      });
+    return () => { cancelled = true; };
+  }, [pendingRegion]);
 
   const categoryBuckets = useMemo(() => {
     const counts = new Map<string, number>();
@@ -83,11 +114,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
       .sort((a, b) => b.count - a.count);
   }, [markers]);
 
-  const baseValueRange: [number, number] | null = useMemo(() => {
-    const values = markers.map((m) => m.value).filter((v): v is number => v != null);
-    if (values.length === 0) return null;
-    return [Math.min(...values), Math.max(...values)];
-  }, [markers]);
+  const baseValueRange = useMemo(() => computeBaseValueRange(markers), [markers]);
 
   const baseFilteredMarkers = useMemo(() => {
     return filterMarkersForDisplay(markers, { selectedCategories, valueRange, searchQuery });
@@ -117,6 +144,34 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
   const searchResults = useMemo(() => filteredMarkers.slice(0, 8), [filteredMarkers]);
   const hasActiveFilters = Boolean(searchQuery.trim() || selectedCategories || valueRange || selectedPolicyRegion);
+
+  const currentSearch = useMemo(() => serializeMapUrlState({
+    categories: selectedCategories ? Array.from(selectedCategories) : null,
+    valueRange,
+    query: searchQuery,
+    view: viewMode,
+    boundary: showBoundaries ? boundaryLevel : null,
+    policyLayer: showPolicyLayer,
+    region: selectedPolicyRegion?.code ?? null,
+  }), [boundaryLevel, searchQuery, selectedCategories, selectedPolicyRegion, showBoundaries, showPolicyLayer, valueRange, viewMode]);
+
+  // Mirror the filter state into the address bar (debounced) without adding history entries.
+  // Waits until a shared region is resolved so `region` is never stripped transiently.
+  useEffect(() => {
+    if (pendingRegion !== null || typeof window === "undefined") return;
+    const handle = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      for (const key of MAP_URL_KEYS) params.delete(key);
+      for (const [key, value] of new URLSearchParams(currentSearch)) params.append(key, value);
+      const nextSearch = params.toString();
+      const next = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+      if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+        window.history.replaceState(window.history.state, "", next);
+      }
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [currentSearch, pendingRegion]);
+
   const boundaryLevelLabel = {
     sido: "광역시도",
     sigg: "시군구",
@@ -143,6 +198,12 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
     setSelectedPolicyRegion(selection);
   }, []);
 
+  // MapView removes its MapLibre instance when the table view takes over; drop the stale
+  // reference so the layers do not touch a removed map when the map view is shown again.
+  const handleMapDispose = useCallback(() => {
+    setMap(null);
+  }, []);
+
   const policyLayerMessage = useMemo(() => {
     if (!showPolicyLayer || policyLayerStatus === "idle") return "인구감소지역과 관심지역을 시군구 경계에 겹쳐 봅니다.";
     if (policyLayerStatus === "loading") return "인구감소지역 기준 레이어를 불러오는 중입니다.";
@@ -165,12 +226,23 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
     map.flyTo({ center: [marker.lng, marker.lat], zoom: 13, essential: true });
   }
 
+  // In embed mode the tools panel always floats over the map (no desktop sidebar column);
+  // the offset clears the always-visible toolbar and the footer bar.
+  const asideFloating = showMobileTools
+    ? "absolute inset-x-3 top-[96px] z-20 max-h-[calc(100dvh-230px)] rounded-xl border shadow-xl"
+    : "hidden";
+  const asideClass = embed
+    ? `order-2 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950 ${asideFloating}`
+    : `order-2 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950 md:static md:order-1 md:block md:max-h-none md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:shadow-none ${showMobileTools ? "absolute inset-x-3 top-[96px] z-20 max-h-[calc(100dvh-180px)] rounded-xl border shadow-xl" : "hidden"}`;
+
   return (
     <div className="flex h-dvh flex-col bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
       <header className="flex min-h-[72px] items-center gap-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <Link href="/" className="shrink-0 text-sm font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100">
-          ← 처음
-        </Link>
+        {!embed && (
+          <Link href="/" className="shrink-0 text-sm font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100">
+            ← 처음
+          </Link>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-base font-semibold">{title}</h1>
@@ -188,58 +260,64 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           )}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             <span>{visibility === "unlisted" ? "링크 보유자 공개" : "공개 지도"}</span>
+            {reviewBadge?.status === "approved" && (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                검토 완료{reviewBadge.versionNumber ? ` · v${reviewBadge.versionNumber}` : ""}{reviewBadge.decidedAtLabel ? ` · ${reviewBadge.decidedAtLabel}` : ""}
+              </span>
+            )}
+            {reviewBadge?.status === "pending" && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">검토 대기</span>
+            )}
             {sourceName && <span>출처: {sourceName}</span>}
             {dataAsOf && <span>기준일: {dataAsOf}</span>}
             {ownerDepartment && <span>관리: {ownerDepartment}</span>}
-            {lastDataUpdateAt && <span>갱신: {new Date(lastDataUpdateAt).toLocaleDateString("ko-KR")}</span>}
+            {lastDataUpdateLabel && <span>갱신: {lastDataUpdateLabel}</span>}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden rounded-lg border border-zinc-300 bg-zinc-50 p-0.5 text-xs md:flex dark:border-zinc-700 dark:bg-zinc-900">
-            <button
-              type="button"
-              onClick={() => setViewMode("map")}
-              className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "map" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
-            >
-              지도
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "table" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
-            >
-              표
-            </button>
+        {!embed && (
+          <div className="flex items-center gap-2">
+            <div className="hidden rounded-lg border border-zinc-300 bg-zinc-50 p-0.5 text-xs md:flex dark:border-zinc-700 dark:bg-zinc-900">
+              <button
+                type="button"
+                onClick={() => setViewMode("map")}
+                className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "map" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
+              >
+                지도
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`min-h-8 rounded-md px-3 font-semibold ${viewMode === "table" ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-700 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
+              >
+                표
+              </button>
+            </div>
+            <SharePanel slug={slug} title={title} search={currentSearch} apiAvailable={!isDemo && visibility !== "private"} />
           </div>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="inline-flex min-h-9 items-center rounded-lg border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
-          >
-            {copied ? "링크 복사됨" : "링크 복사"}
-          </button>
-        </div>
+        )}
       </header>
 
-      <div className="border-b border-zinc-200 bg-white px-4 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="font-semibold text-zinc-800 dark:text-zinc-200">데이터 품질</span>
-          <span>표시 {markers.length.toLocaleString()}건</span>
-          {qualitySummary?.review ? <span className="text-amber-700 dark:text-amber-300">검수 필요 {qualitySummary.review.toLocaleString()}건</span> : <span className="text-emerald-700 dark:text-emerald-300">자동 검수 완료</span>}
-          {qualitySummary?.failed ? <span className="text-red-700 dark:text-red-300">변환 실패 {qualitySummary.failed.toLocaleString()}건</span> : null}
-          {qualitySummary?.excluded ? <span>제외 {qualitySummary.excluded.toLocaleString()}건</span> : null}
-          {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-blue-700 underline dark:text-blue-400">출처 원문</a>}
-          {license && <span>이용조건: {license}</span>}
-          {refreshCycle && <span>갱신주기: {refreshCycle}</span>}
-          {nextReviewAt && <span>다음 점검일: {nextReviewAt}</span>}
-          {contact && <span>문의: {contact}</span>}
+      {!embed && (
+        <div className="border-b border-zinc-200 bg-white px-4 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="font-semibold text-zinc-800 dark:text-zinc-200">데이터 품질</span>
+            <span>표시 {markers.length.toLocaleString()}건</span>
+            {qualitySummary?.review ? <span className="text-amber-700 dark:text-amber-300">검수 필요 {qualitySummary.review.toLocaleString()}건</span> : <span className="text-emerald-700 dark:text-emerald-300">자동 검수 완료</span>}
+            {qualitySummary?.failed ? <span className="text-red-700 dark:text-red-300">변환 실패 {qualitySummary.failed.toLocaleString()}건</span> : null}
+            {qualitySummary?.excluded ? <span>제외 {qualitySummary.excluded.toLocaleString()}건</span> : null}
+            {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-blue-700 underline dark:text-blue-400">출처 원문</a>}
+            {license && <span>이용조건: {license}</span>}
+            {refreshCycle && <span>갱신주기: {refreshCycle}</span>}
+            {nextReviewAt && <span>다음 점검일: {nextReviewAt}</span>}
+            {contact && <span>문의: {contact}</span>}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="relative grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[340px_1fr]">
+      <div className={`relative grid flex-1 grid-cols-1 overflow-hidden ${embed ? "" : "md:grid-cols-[340px_1fr]"}`}>
         <aside
           id="map-tools-panel"
-          className={`order-2 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950 md:static md:order-1 md:block md:max-h-none md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:shadow-none ${showMobileTools ? "absolute inset-x-3 top-[96px] z-20 max-h-[calc(100dvh-180px)] rounded-xl border shadow-xl" : "hidden"}`}
+          className={asideClass}
         >
           <section className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
             <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-100">지도 사용법</h2>
@@ -377,7 +455,11 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                 checked={showPolicyLayer}
                 onChange={(event) => {
                   setShowPolicyLayer(event.target.checked);
-                  if (!event.target.checked) setSelectedPolicyRegion(null);
+                  if (!event.target.checked) {
+                    setSelectedPolicyRegion(null);
+                    // Drop a shared region that is still resolving so it cannot filter a hidden layer.
+                    setPendingRegion(null);
+                  }
                 }}
                 className="mt-1 h-4 w-4 accent-blue-700"
                 aria-label="인구감소지역 기준 레이어 표시"
@@ -431,7 +513,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
         </aside>
 
         <main className="order-1 relative bg-white md:order-2 dark:bg-zinc-950">
-          <div className="flex flex-col gap-2 border-b border-zinc-200 bg-white px-4 py-3 text-xs md:hidden dark:border-zinc-800 dark:bg-zinc-950">
+          <div className={`flex flex-col gap-2 border-b border-zinc-200 bg-white px-4 py-3 text-xs dark:border-zinc-800 dark:bg-zinc-950 ${embed ? "" : "md:hidden"}`}>
             <div className="flex items-center justify-between">
               <span className="min-w-0 font-semibold text-zinc-700 dark:text-zinc-300">
                 {filteredMarkers.length.toLocaleString()}곳 표시 중
@@ -473,7 +555,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
 
           {viewMode === "map" ? (
             <>
-              <MapView onReady={setMap} />
+              <MapView onReady={setMap} onDispose={handleMapDispose} />
               <BoundaryLayer
                 map={map}
                 markers={filteredMarkers}
@@ -485,6 +567,7 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
                 map={map}
                 enabled={showPolicyLayer}
                 selectedCode={selectedPolicyRegion?.code ?? null}
+                frameSelection={focusedMarkerId === null}
                 onSelect={handlePolicyRegionSelect}
                 onStatusChange={setPolicyLayerStatus}
               />
@@ -566,6 +649,24 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           )}
         </main>
       </div>
+
+      {embed && (
+        <div className="flex items-center justify-between gap-3 border-t border-zinc-200 bg-white px-3 py-1.5 text-[11px] text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+          <span className="truncate">
+            {title}{sourceName ? ` · 출처 ${sourceName}` : ""}{dataAsOf ? ` · 기준일 ${dataAsOf}` : ""}
+          </span>
+          {embedOpenLink && (
+            <a
+              href={`/m/${slug}${currentSearch ? `?${currentSearch}` : ""}`}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 font-semibold text-blue-700 hover:underline dark:text-blue-400"
+            >
+              PolicyMap에서 열기 ↗
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }
