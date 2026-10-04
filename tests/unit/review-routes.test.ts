@@ -70,6 +70,31 @@ describe("review routes", () => {
       expect(mockRecordAudit.mock.calls[0][0]).toMatchObject({ action: "map.review_settings", mapId: "m1" });
     });
 
+    it("still reports the successful write when the post-write state load fails", async () => {
+      mockVerifyAdmin.mockResolvedValue({ ok: true, mapId: "m1" });
+      mockUpdateSettings.mockResolvedValue({ review_required: true, review_token: "tok", rotated: true });
+      mockLoadState.mockRejectedValue(new Error("db down"));
+      const { POST } = await import("@/app/api/maps/[slug]/review/settings/route");
+      const res = await POST(post("/api/maps/abc123/review/settings", { admin_token: "t", review_required: true }), ctx);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.review_token).toBe("tok");
+      expect(json).not.toHaveProperty("state");
+      expect(mockRecordAudit.mock.calls[0][0]).toMatchObject({ action: "map.review_settings", mapId: "m1" });
+    });
+
+    it("reports SETTINGS_FAILED only for a failed write", async () => {
+      mockVerifyAdmin.mockResolvedValue({ ok: true, mapId: "m1" });
+      mockUpdateSettings.mockRejectedValue(new Error("write failed"));
+      const { POST } = await import("@/app/api/maps/[slug]/review/settings/route");
+      const res = await POST(post("/api/maps/abc123/review/settings", { admin_token: "t", review_required: true }), ctx);
+      expect(res.status).toBe(500);
+      expect((await res.json()).error.code).toBe("SETTINGS_FAILED");
+      expect(mockRecordAudit).not.toHaveBeenCalled();
+      expect(mockLoadState).not.toHaveBeenCalled();
+    });
+
     it("returns 404 and audits on bad token", async () => {
       mockVerifyAdmin.mockResolvedValue({ ok: false, reason: "NOT_FOUND" });
       const { POST } = await import("@/app/api/maps/[slug]/review/settings/route");
@@ -89,6 +114,17 @@ describe("review routes", () => {
       expect(res.status).toBe(200);
       expect(mockRequest).toHaveBeenCalledWith({ mapId: "m1", note: "확인 부탁", actorToken: "t" });
       expect(await res.json()).toEqual({ ok: true, review: { id: "r1", status: "pending", version_number: 2 }, state: freshState });
+      expect(mockRecordAudit.mock.calls[0][0].action).toBe("map.review_request");
+    });
+
+    it("omits state when the post-write state load fails", async () => {
+      mockVerifyAdmin.mockResolvedValue({ ok: true, mapId: "m1" });
+      mockRequest.mockResolvedValue({ ok: true, review: { id: "r1", status: "pending", version_number: 2 } });
+      mockLoadState.mockRejectedValue(new Error("db down"));
+      const { POST } = await import("@/app/api/maps/[slug]/review/request/route");
+      const res = await POST(post("/api/maps/abc123/review/request", { admin_token: "t" }), ctx);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, review: { id: "r1", status: "pending", version_number: 2 } });
       expect(mockRecordAudit.mock.calls[0][0].action).toBe("map.review_request");
     });
 

@@ -133,8 +133,12 @@ export function ReviewSection({
   async function loadDetails() {
     const json = await callApi(`/api/maps/${slug}/review/state`, {});
     if (!json) return;
+    if (!isReviewState(json.state)) {
+      setStatus({ kind: "error", message: "검토 상세를 해석하지 못했습니다. 잠시 후 다시 시도해 주세요." });
+      return;
+    }
     const directory = json.directory as { reason?: string | null } | undefined;
-    if (isReviewState(json.state)) applyState(json.state, directory?.reason ?? null);
+    applyState(json.state, directory?.reason ?? null);
     setStatus({ kind: "idle" });
   }
 
@@ -248,7 +252,7 @@ export function ReviewSection({
       )}
 
       {summary.required && (
-        <div className="space-y-4">
+        <div className="space-y-4" aria-live="polite">
           {details && (
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium dark:bg-zinc-900">{REVIEW_STATUS_LABEL[summary.status]}</span>

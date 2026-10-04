@@ -66,6 +66,7 @@ export async function rateLimitRequest(req: Request, prefix: string, cfg: RateLi
 export const LIMITS = {
   upload: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3/hour
   adminAttempt: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5/10min
+  adminRead: { limit: 30, windowMs: 10 * 60 * 1000 }, // 30/10min, token-authenticated read-only calls
   deleteMap: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5/10min
   report: { limit: 5, windowMs: 60 * 60 * 1000 }, // 5/hour
   publicApi: { limit: 120, windowMs: 60 * 1000 }, // 120/min per IP

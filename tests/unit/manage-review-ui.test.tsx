@@ -240,6 +240,23 @@ describe("ReviewSection", () => {
     expect(container.textContent).not.toContain("검토 상세 불러오기");
   });
 
+  test("a 200 with malformed state shows an error instead of going idle", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ ok: true, state: { nope: true }, directory: { hidden: false, reason: null } }));
+    const container = render({ ...base, required: true, hasToken: true, status: "rejected" });
+    await act(async () => {
+      buttonByText(container, "검토 상세 불러오기").click();
+    });
+    expect(container.textContent).toContain("검토 상세를 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    // Nothing was applied: the load button stays available for a retry.
+    expect(buttonByText(container, "검토 상세 불러오기")).toBeTruthy();
+    expect(pillText(container)).toBe("반려됨");
+  });
+
+  test("the details container announces changes politely", () => {
+    const container = render({ ...base, required: true, hasToken: true });
+    expect(container.querySelector('#review-section [aria-live="polite"]')).not.toBeNull();
+  });
+
   test("a settings response carrying state updates the pill and details", async () => {
     const state: ReviewState = {
       required: true,

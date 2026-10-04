@@ -5,10 +5,15 @@ const mockVerifyAdmin = vi.fn();
 const mockRecordAudit = vi.fn();
 const mockLoadState = vi.fn();
 const mockMapsSelect = vi.fn();
+const mockRateLimit = vi.fn();
 
 vi.mock("@/lib/admin-auth", () => ({ verifyAdminTokenForMap: (...a: unknown[]) => mockVerifyAdmin(...a) }));
 vi.mock("@/lib/audit", () => ({ recordAudit: (...a: unknown[]) => mockRecordAudit(...a) }));
 vi.mock("@/lib/reviews/service", () => ({ loadReviewState: (...a: unknown[]) => mockLoadState(...a) }));
+vi.mock("@/lib/rate-limit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
+  return { ...actual, rateLimitRequest: (...a: unknown[]) => mockRateLimit(...a) };
+});
 vi.mock("@/lib/supabase/server", () => ({
   supabaseServer: () => ({
     from: (table: string) => ({
@@ -42,8 +47,9 @@ const state = {
 
 describe("POST /api/maps/[slug]/review/state", () => {
   beforeEach(() => {
-    for (const m of [mockVerifyAdmin, mockRecordAudit, mockLoadState, mockMapsSelect]) m.mockReset();
+    for (const m of [mockVerifyAdmin, mockRecordAudit, mockLoadState, mockMapsSelect, mockRateLimit]) m.mockReset();
     mockRecordAudit.mockResolvedValue(undefined);
+    mockRateLimit.mockResolvedValue({ allowed: true, retryAfterMs: 0 });
   });
 
   it("rejects without admin token and never touches the service", async () => {
@@ -74,6 +80,39 @@ describe("POST /api/maps/[slug]/review/state", () => {
     expect(await res.json()).toEqual({ ok: true, state, directory: { hidden: true, reason: "신고 확인" } });
     expect(mockLoadState).toHaveBeenCalledWith("m1");
     expect(mockMapsSelect.mock.calls[0][0]).toMatchObject({ table: "maps", cols: "directory_hidden, directory_hidden_reason", key: "id", value: "m1" });
+    expect(mockRecordAudit).not.toHaveBeenCalled();
+  });
+
+  it("uses the per-slug read limit bucket instead of the write-attempt one", async () => {
+    const { LIMITS } = await import("@/lib/rate-limit");
+    const { POST } = await import("@/app/api/maps/[slug]/review/state/route");
+    await POST(post({}), ctx);
+    expect(mockRateLimit).toHaveBeenCalledTimes(1);
+    const [, prefix, limit] = mockRateLimit.mock.calls[0];
+    expect(prefix).toBe("review-admin_read-abc123");
+    expect(limit).toEqual(LIMITS.adminRead);
+    expect(limit).not.toEqual(LIMITS.adminAttempt);
+  });
+
+  it("answers 429 with Retry-After when the read bucket is exhausted", async () => {
+    mockRateLimit.mockResolvedValue({ allowed: false, retryAfterMs: 4000 });
+    const { POST } = await import("@/app/api/maps/[slug]/review/state/route");
+    const res = await POST(post({ admin_token: "t" }), ctx);
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("4");
+    expect(mockVerifyAdmin).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 STATE_FAILED when the maps select errors", async () => {
+    mockVerifyAdmin.mockResolvedValue({ ok: true, mapId: "m1" });
+    mockLoadState.mockResolvedValue(state);
+    mockMapsSelect.mockResolvedValue({ data: null, error: { message: "connection reset" } });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { POST } = await import("@/app/api/maps/[slug]/review/state/route");
+    const res = await POST(post({ admin_token: "t" }), ctx);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ ok: false, error: { code: "STATE_FAILED", message: "지도 상태를 불러오지 못했습니다." } });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(mockRecordAudit).not.toHaveBeenCalled();
   });
 

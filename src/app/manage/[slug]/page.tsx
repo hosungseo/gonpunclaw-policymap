@@ -4,7 +4,8 @@ import { ManageForm, type ManagedMap } from "./ManageForm";
 
 export const dynamic = "force-dynamic";
 
-async function loadMap(slug: string): Promise<ManagedMap | null> {
+/** Exported for tests that pin the unauthenticated SSR payload shape. */
+export async function loadMap(slug: string): Promise<ManagedMap | null> {
   const sb = supabaseServer();
   const { data } = await sb
     .from("maps")

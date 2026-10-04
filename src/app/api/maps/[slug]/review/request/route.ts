@@ -15,6 +15,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
   const result = await requestReview({ mapId: auth.mapId, note, actorToken: auth.token });
   if (!result.ok) return reviewJsonError(result.code, result.message, result.code === "REVIEW_NOT_ENABLED" ? 409 : 500);
   await recordAudit({ action: "map.review_request", mapId: auth.mapId, req, details: { slug, review_id: result.review.id, version_number: result.review.version_number } });
-  // Fresh details so the manage page can sync without a second authenticated call.
-  return NextResponse.json({ ok: true, review: result.review, state: await loadReviewState(auth.mapId) });
+  // Fresh details so the manage page can sync without a second authenticated call. The request is
+  // already stored, so a failed state load degrades to a response without `state`.
+  const state = await loadReviewState(auth.mapId).catch(() => undefined);
+  return NextResponse.json({ ok: true, review: result.review, ...(state ? { state } : {}) });
 }
