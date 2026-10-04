@@ -7,6 +7,7 @@ const mockRecordAudit = vi.fn();
 const mockUpdateSettings = vi.fn();
 const mockRequest = vi.fn();
 const mockDecide = vi.fn();
+const mockLoadState = vi.fn();
 
 vi.mock("@/lib/admin-auth", () => ({ verifyAdminTokenForMap: (...a: unknown[]) => mockVerifyAdmin(...a) }));
 vi.mock("@/lib/reviews/tokens", async (importOriginal) => {
@@ -21,6 +22,7 @@ vi.mock("@/lib/reviews/service", async (importOriginal) => {
     updateReviewSettings: (...a: unknown[]) => mockUpdateSettings(...a),
     requestReview: (...a: unknown[]) => mockRequest(...a),
     decideReview: (...a: unknown[]) => mockDecide(...a),
+    loadReviewState: (...a: unknown[]) => mockLoadState(...a),
   };
 });
 
@@ -37,10 +39,14 @@ function post(path: string, body: unknown): NextRequest {
 }
 const ctx = { params: Promise.resolve({ slug: "abc123" }) };
 
+// What loadReviewState hands back after a successful write; routes echo it so the manage page can sync.
+const freshState = { required: true, hasToken: true, status: "pending", currentVersionNumber: 2, approvedVersionNumber: null, latest: null };
+
 describe("review routes", () => {
   beforeEach(() => {
-    for (const m of [mockVerifyAdmin, mockVerifyReview, mockRecordAudit, mockUpdateSettings, mockRequest, mockDecide]) m.mockReset();
+    for (const m of [mockVerifyAdmin, mockVerifyReview, mockRecordAudit, mockUpdateSettings, mockRequest, mockDecide, mockLoadState]) m.mockReset();
     mockRecordAudit.mockResolvedValue(undefined);
+    mockLoadState.mockResolvedValue(freshState);
   });
 
   describe("settings", () => {
@@ -59,6 +65,8 @@ describe("review routes", () => {
       const json = await res.json();
       expect(json.review_token).toBe("tok");
       expect(json.review_url).toBe("http://localhost/review/abc123?t=tok");
+      expect(json.state).toEqual(freshState);
+      expect(mockLoadState).toHaveBeenCalledWith("m1");
       expect(mockRecordAudit.mock.calls[0][0]).toMatchObject({ action: "map.review_settings", mapId: "m1" });
     });
 
@@ -68,6 +76,7 @@ describe("review routes", () => {
       const res = await POST(post("/api/maps/abc123/review/settings", { admin_token: "bad", review_required: true }), ctx);
       expect(res.status).toBe(404);
       expect(mockRecordAudit.mock.calls[0][0].action).toBe("admin.auth_fail");
+      expect(mockLoadState).not.toHaveBeenCalled();
     });
   });
 
@@ -79,6 +88,7 @@ describe("review routes", () => {
       const res = await POST(post("/api/maps/abc123/review/request", { admin_token: "t", note: "확인 부탁" }), ctx);
       expect(res.status).toBe(200);
       expect(mockRequest).toHaveBeenCalledWith({ mapId: "m1", note: "확인 부탁", actorToken: "t" });
+      expect(await res.json()).toEqual({ ok: true, review: { id: "r1", status: "pending", version_number: 2 }, state: freshState });
       expect(mockRecordAudit.mock.calls[0][0].action).toBe("map.review_request");
     });
 
@@ -88,6 +98,7 @@ describe("review routes", () => {
       const { POST } = await import("@/app/api/maps/[slug]/review/request/route");
       const res = await POST(post("/api/maps/abc123/review/request", { admin_token: "t" }), ctx);
       expect(res.status).toBe(409);
+      expect(mockLoadState).not.toHaveBeenCalled();
     });
   });
 

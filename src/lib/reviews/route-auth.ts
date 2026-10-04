@@ -16,8 +16,8 @@ type Denied = { ok: false; response: NextResponse };
 
 /** Shared preamble: rate limit, parse body, verify the admin or review token (404 + audit on failure). */
 async function authenticate(req: NextRequest, slug: string, route: string, tokenField: "admin_token" | "review_token"): Promise<Authed | Denied> {
-  // Review links are shared with outsiders, so brute-force attempts are also bucketed per map slug.
-  const limitPrefix = tokenField === "review_token" ? `review-${tokenField}-${slug}` : `review-${tokenField}`;
+  // Brute-force attempts are bucketed per map slug for both token kinds.
+  const limitPrefix = `review-${tokenField}-${slug}`;
   const limit = await rateLimitRequest(req, limitPrefix, LIMITS.adminAttempt);
   if (!limit.allowed) {
     return { ok: false, response: reviewJsonError("RATE_LIMITED", "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.", 429, { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) }) };

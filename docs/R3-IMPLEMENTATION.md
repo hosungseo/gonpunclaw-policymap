@@ -28,7 +28,7 @@ R3는 PRD의 P2 범위(FR-PM-013 협업과 승인, FR-PM-014 임베드와 공개
 ### 검토·승인 (경량판)
 
 - 스키마: `maps.review_required`, `review_token_hash`(`review:` 접두어로 관리 토큰과 도메인 분리한 HMAC), `approved_version_id`, `map_reviews` 이력 테이블. 지도당 pending 1건은 부분 유니크 인덱스(`status = 'pending'`)로 강제한다.
-- 소유자 흐름(관리 페이지 "검토·승인"): "공개 전 검토 필수"를 켜면 검토 링크가 한 번만 표시된다(재발급 가능, 이전 링크 즉시 무효). "검토 요청"은 현재 버전을 가리키는 pending 행을 만든다(버전이 없으면 먼저 스냅샷을 뜬다). 라우트: `/api/maps/[slug]/review/{settings,request}` — 관리 토큰 필요.
+- 소유자 흐름(관리 페이지 "검토·승인"): "공개 전 검토 필수"를 켜면 검토 링크가 한 번만 표시된다(재발급 가능, 이전 링크 즉시 무효). "검토 요청"은 현재 버전을 가리키는 pending 행을 만든다(버전이 없으면 먼저 스냅샷을 뜬다). 라우트: `/api/maps/[slug]/review/{settings,request}` — 관리 토큰 필요. 관리 페이지(`/manage/[slug]`)는 관리 토큰 없이 서버 렌더되므로 검토 상태 배지만 담고, 검토 의견·검토자·요청 이력과 스태프 숨김 사유는 `POST /api/maps/[slug]/review/state`(관리 토큰, 읽기 전용·성공 시 감사 없음)로만 내려준다. settings·request 응답에도 같은 `state`가 실려 화면이 한 번에 동기화된다. 관리 토큰 경로의 레이트리밋 버킷도 검토 토큰과 같이 슬러그별로 나눈다.
 - 검토자 흐름: `/review/[slug]?t=` — 미리보기 + 메타데이터·품질·공개 추가정보 열의 민감 헤더 검사 + 체크리스트 4항목(출처, 기준일, 민감정보, 공개 범위) + 승인/반려. 승인은 4항목 모두 확인, 반려는 의견 필수. 라우트: `/api/maps/[slug]/review/decide` — 검토 토큰 필요. 페이지는 `noindex`, 주소창에서 `?t=`를 즉시 제거하며 `Referrer-Policy: no-referrer`를 보낸다. 토큰 실패는 404 + 감사 `review.auth_fail`.
 - 승인은 검토자가 본 버전에 고정된다. 요청 이후 소유자가 데이터를 교체·복원해 현재 버전이 바뀌었으면 승인 시도는 `[자동 반려]`로 기록되고 `409 VERSION_CHANGED`를 돌려준다. 같은 요청을 두 번 결정하면 `409 ALREADY_DECIDED`, 대기 요청이 없으면 `409 NO_PENDING_REVIEW`.
 - 게이트(`src/lib/reviews/gate.ts`): private → public/unlisted 전환 시 `approved_version_id === current_version_id`가 아니면 `409 REVIEW_REQUIRED`. 업데이트 라우트, 업로드 발행 라우트, 버전 복원 라우트(스냅샷의 공개 범위를 목표로 판정) 세 곳에 적용된다. 세 라우트 모두 지도 상태를 읽지 못하면 `500 MAP_LOAD_FAILED`로 닫힌다(fail closed). public ↔ unlisted 전환과 private로 내리는 전환은 막지 않는다.
