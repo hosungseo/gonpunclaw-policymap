@@ -58,7 +58,30 @@ export interface ReviewState {
   approvedVersionNumber: number | null;
 }
 
-/** Owner/reviewer-facing state for a map. */
+/** Status-only view for the unauthenticated manage page: no comments, reviewer labels or request notes. */
+export type ReviewSummary = Pick<ReviewState, "required" | "hasToken" | "status" | "currentVersionNumber">;
+
+export async function loadReviewSummary(mapId: string): Promise<ReviewSummary> {
+  const sb = supabaseServer();
+  const [{ data: map }, { data: latest }] = await Promise.all([
+    sb.from("maps").select("review_required, review_token_hash, approved_version_id, current_version_id").eq("id", mapId).single(),
+    // Only the status column: the summary must never carry reviewer-written text.
+    sb.from("map_reviews").select("status").eq("map_id", mapId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const fields: ReviewGateFields = {
+    review_required: map?.review_required ?? false,
+    approved_version_id: map?.approved_version_id ?? null,
+    current_version_id: map?.current_version_id ?? null,
+  };
+  return {
+    required: Boolean(fields.review_required),
+    hasToken: Boolean(map?.review_token_hash),
+    status: manageReviewStatus(fields, (latest as { status: ReviewRow["status"] } | null) ?? null),
+    currentVersionNumber: await versionNumberOf(fields.current_version_id),
+  };
+}
+
+/** Owner/reviewer-facing state for a map. Served only behind the admin or review token. */
 export async function loadReviewState(mapId: string): Promise<ReviewState> {
   const sb = supabaseServer();
   const [{ data: map }, { data: latest }] = await Promise.all([

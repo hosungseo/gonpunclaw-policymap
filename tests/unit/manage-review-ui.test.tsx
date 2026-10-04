@@ -2,7 +2,8 @@ import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { ManageForm, type ManagedMap } from "@/app/manage/[slug]/ManageForm";
-import { ReviewSection, type ManagedReview } from "@/app/manage/[slug]/ReviewSection";
+import { ReviewSection, type ManagedReviewDetails, type ManagedReviewSummary } from "@/app/manage/[slug]/ReviewSection";
+import type { ReviewState } from "@/lib/reviews/service";
 
 let root: ReturnType<typeof createRoot> | null = null;
 
@@ -15,23 +16,41 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const base: ManagedReview = {
+const base: ManagedReviewSummary = {
   required: false,
   hasToken: false,
   status: "none",
-  latest: null,
   currentVersionNumber: 1,
-  approvedVersionNumber: null,
 };
 
-const approved: ManagedReview = {
-  required: true,
-  hasToken: true,
-  status: "approved",
+type Latest = NonNullable<ReviewState["latest"]>;
+
+function latestRow(overrides: Partial<Latest>): Latest {
+  return {
+    id: "r1",
+    status: "pending",
+    version_id: "v1",
+    request_note: "",
+    checklist: {},
+    comment: "",
+    reviewer_label: null,
+    created_at: "2026-01-01T00:00:00Z",
+    decided_at: null,
+    version_number: 1,
+    ...overrides,
+  };
+}
+
+/** Token-loaded details, as /api/maps/[slug]/review/state returns them plus the hide reason. */
+function detailsOf(summary: ManagedReviewSummary, extra: Partial<ManagedReviewDetails> = {}): ManagedReviewDetails {
+  return { ...summary, latest: null, approvedVersionNumber: null, directoryReason: null, ...extra };
+}
+
+const approved: ManagedReviewSummary = { required: true, hasToken: true, status: "approved", currentVersionNumber: 2 };
+const approvedDetails = detailsOf(approved, {
   approvedVersionNumber: 2,
-  currentVersionNumber: 2,
-  latest: { status: "approved", version_number: 2, created_at: "2026-01-01T00:00:00Z", decided_at: "2026-01-02T00:00:00Z", reviewer_label: "검토자", comment: "" },
-};
+  latest: latestRow({ status: "approved", version_number: 2, decided_at: "2026-01-02T00:00:00Z", reviewer_label: "검토자" }),
+});
 
 const mapFixture: ManagedMap = {
   title: "테스트 지도",
@@ -47,10 +66,11 @@ const mapFixture: ManagedMap = {
   owner_department: "지역경제과",
 };
 
-/** Mounts ReviewSection with its own state holder, as ManageForm does. */
-function Harness({ initial, token }: { initial: ManagedReview; token: string }) {
-  const [review, setReview] = useState<ManagedReview>(initial);
-  return <ReviewSection slug="abc123" token={token} review={review} setReview={setReview} />;
+/** Mounts ReviewSection with its own state holders, as ManageForm does. */
+function Harness({ initial, initialDetails, token }: { initial: ManagedReviewSummary; initialDetails: ManagedReviewDetails | null; token: string }) {
+  const [summary, setSummary] = useState<ManagedReviewSummary>(initial);
+  const [details, setDetails] = useState<ManagedReviewDetails | null>(initialDetails);
+  return <ReviewSection slug="abc123" token={token} summary={summary} setSummary={setSummary} details={details} setDetails={setDetails} />;
 }
 
 function mount(node: React.ReactNode) {
@@ -63,8 +83,8 @@ function mount(node: React.ReactNode) {
   return container;
 }
 
-function render(review: ManagedReview, token = "tok") {
-  return mount(<Harness initial={review} token={token} />);
+function render(summary: ManagedReviewSummary, token = "tok", details: ManagedReviewDetails | null = null) {
+  return mount(<Harness initial={summary} initialDetails={details} token={token} />);
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -161,33 +181,98 @@ describe("ReviewSection", () => {
   });
 
   test("shows stale warning when approved version differs from current", () => {
-    const container = render({ ...approved, status: "stale", currentVersionNumber: 3 });
+    const stale = { ...approved, status: "stale" as const, currentVersionNumber: 3 };
+    const container = render(stale, "tok", { ...approvedDetails, ...stale });
     expect(container.textContent).toContain("데이터가 바뀌어 재검토가 필요합니다");
     expect(container.textContent).toContain("검토자");
     expect(container.textContent).toContain("2026");
   });
 
-  test("shows rejection comment", () => {
-    const container = render({
-      ...base,
-      required: true,
-      hasToken: true,
-      status: "rejected",
-      latest: { status: "rejected", version_number: 1, created_at: "2026-01-01T00:00:00Z", decided_at: "2026-01-02T00:00:00Z", reviewer_label: null, comment: "출처 URL 오류" },
-    });
+  test("shows rejection comment once details are loaded", () => {
+    const rejected: ManagedReviewSummary = { ...base, required: true, hasToken: true, status: "rejected" };
+    const container = render(rejected, "tok", detailsOf(rejected, { latest: latestRow({ status: "rejected", decided_at: "2026-01-02T00:00:00Z", comment: "출처 URL 오류" }) }));
     expect(container.textContent).toContain("출처 URL 오류");
   });
 
   test("shows the request date while pending", () => {
-    const container = render({
-      ...base,
+    const pending: ManagedReviewSummary = { ...base, required: true, hasToken: true, status: "pending" };
+    const container = render(pending, "tok", detailsOf(pending, { latest: latestRow({ created_at: "2026-03-05T00:00:00Z" }) }));
+    expect(container.textContent).toContain("요청 2026");
+    expect(container.textContent).toContain("3");
+  });
+
+  test("without details, only the status pill and the load button are rendered", () => {
+    const container = render({ ...base, required: true, hasToken: true, status: "rejected" });
+    expect(pillText(container)).toBe("반려됨");
+    expect(buttonByText(container, "검토 상세 불러오기")).toBeTruthy();
+    expect(container.textContent).toContain("관리 토큰으로 검토 의견·검토자·요청 이력을 확인합니다.");
+    expect(container.textContent).not.toContain("반려 의견");
+    expect(container.textContent).not.toContain("결정 ");
+  });
+
+  test("loading details without admin token is blocked", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const container = render({ ...base, required: true, hasToken: true }, "");
+    await act(async () => {
+      buttonByText(container, "검토 상세 불러오기").click();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("관리 토큰을 입력해 주세요.");
+  });
+
+  test("loading details posts the admin token to the state route and renders reviewer label and comment", async () => {
+    const rejected: ManagedReviewSummary = { ...base, required: true, hasToken: true, status: "rejected" };
+    const state: ReviewState = {
+      ...rejected,
+      approvedVersionNumber: null,
+      latest: latestRow({ status: "rejected", decided_at: "2026-01-02T00:00:00Z", reviewer_label: "검토자 김", comment: "출처 URL 오류" }),
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ ok: true, state, directory: { hidden: false, reason: null } }));
+    const container = render(rejected);
+    await act(async () => {
+      buttonByText(container, "검토 상세 불러오기").click();
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe("/api/maps/abc123/review/state");
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toEqual({ admin_token: "tok" });
+    expect(container.textContent).toContain("출처 URL 오류");
+    expect(container.textContent).toContain("검토자 김");
+    expect(container.querySelector("button")?.textContent).not.toBe("검토 상세 불러오기");
+    expect(container.textContent).not.toContain("검토 상세 불러오기");
+  });
+
+  test("a 200 with malformed state shows an error instead of going idle", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ ok: true, state: { nope: true }, directory: { hidden: false, reason: null } }));
+    const container = render({ ...base, required: true, hasToken: true, status: "rejected" });
+    await act(async () => {
+      buttonByText(container, "검토 상세 불러오기").click();
+    });
+    expect(container.textContent).toContain("검토 상세를 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    // Nothing was applied: the load button stays available for a retry.
+    expect(buttonByText(container, "검토 상세 불러오기")).toBeTruthy();
+    expect(pillText(container)).toBe("반려됨");
+  });
+
+  test("the details container announces changes politely", () => {
+    const container = render({ ...base, required: true, hasToken: true });
+    expect(container.querySelector('#review-section [aria-live="polite"]')).not.toBeNull();
+  });
+
+  test("a settings response carrying state updates the pill and details", async () => {
+    const state: ReviewState = {
       required: true,
       hasToken: true,
       status: "pending",
-      latest: { status: "pending", version_number: 1, created_at: "2026-03-05T00:00:00Z", decided_at: null, reviewer_label: null, comment: "" },
+      currentVersionNumber: 1,
+      approvedVersionNumber: null,
+      latest: latestRow({ created_at: "2026-03-05T00:00:00Z" }),
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ ok: true, review_required: true, review_token: null, review_url: null, state }));
+    const container = render({ ...base, hasToken: true });
+    await act(async () => {
+      container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click();
     });
+    expect(pillText(container)).toBe("검토 대기");
     expect(container.textContent).toContain("요청 2026");
-    expect(container.textContent).toContain("3");
   });
 
   test("blocks actions without admin token", async () => {
@@ -201,7 +286,8 @@ describe("ReviewSection", () => {
   });
 
   test("requesting a review posts the note and shows pending status", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ ok: true, review: { id: "r1", status: "pending", version_number: 4 } }));
+    const state: ReviewState = { required: true, hasToken: true, status: "pending", currentVersionNumber: 4, approvedVersionNumber: null, latest: latestRow({ version_number: 4 }) };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ ok: true, review: { id: "r1", status: "pending", version_number: 4 }, state }));
     const container = render({ ...base, required: true, hasToken: true, currentVersionNumber: null });
     await act(async () => {
       buttonByText(container, "검토 요청").click();
@@ -243,10 +329,24 @@ describe("ManageForm review integration", () => {
     });
   }
 
-  test("renders the directory hidden notice with its reason", () => {
-    const container = mount(<ManageForm slug="abc123" initial={{ ...mapFixture, directory: { hidden: true, reason: "신고 확인" } }} />);
+  test("renders the directory hidden notice without a reason until details are loaded", async () => {
+    const summary: ManagedReviewSummary = { ...base, required: true, hasToken: true, status: "rejected" };
+    const state: ReviewState = { ...summary, approvedVersionNumber: null, latest: latestRow({ status: "rejected", decided_at: "2026-01-02T00:00:00Z", reviewer_label: "검토자 김", comment: "출처 URL 오류" }) };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ ok: true, state, directory: { hidden: true, reason: "신고 확인" } }));
+    const container = mount(<ManageForm slug="abc123" initial={{ ...mapFixture, review: summary, directory: { hidden: true } }} />);
     expect(container.textContent).toContain("이 지도는 공개 디렉터리에서 숨김 처리되어 있습니다.");
+    expect(container.textContent).not.toContain("사유:");
+    expect(container.textContent).not.toContain("출처 URL 오류");
+
+    typeToken(container);
+    await act(async () => {
+      buttonByText(container, "검토 상세 불러오기").click();
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe("/api/maps/abc123/review/state");
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toEqual({ admin_token: "tok" });
     expect(container.textContent).toContain("사유: 신고 확인");
+    expect(container.textContent).toContain("출처 URL 오류");
+    expect(container.textContent).toContain("검토자 김");
   });
 
   test("scrolls to the review section when the update route answers REVIEW_REQUIRED", async () => {
@@ -274,6 +374,26 @@ describe("ManageForm review integration", () => {
     await submitEdit(container);
     expect(container.textContent).toContain("변경 사항이 저장되었습니다.");
     expect(pillText(container)).toBe("재검토 필요");
+  });
+
+  test("an invalidating edit also turns loaded details stale", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true, state: { ...approvedDetails }, directory: { hidden: false, reason: null } }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true, map: { ...mapFixture, slug: "abc123", source_name: "새 출처" } }));
+    const container = mount(<ManageForm slug="abc123" initial={{ ...mapFixture, review: approved }} />);
+    typeToken(container);
+    await act(async () => {
+      buttonByText(container, "검토 상세 불러오기").click();
+    });
+    expect(container.textContent).toContain("검토자");
+    act(() => {
+      setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="예: ○○시 복지정책과"]')!, "새 출처");
+    });
+    await submitEdit(container);
+    expect(pillText(container)).toBe("재검토 필요");
+    expect(container.textContent).toContain("데이터가 바뀌어 재검토가 필요합니다");
+    // The decided-by line from the loaded details stays visible.
+    expect(container.textContent).toContain("검토자");
   });
 
   test("an edit that leaves review-sensitive fields alone keeps the approval", async () => {

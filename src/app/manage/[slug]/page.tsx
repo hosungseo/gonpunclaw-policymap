@@ -1,36 +1,21 @@
 import { supabaseServer } from "@/lib/supabase/server";
-import { loadReviewState } from "@/lib/reviews/service";
-import { ManageForm, type ManagedMap, type ManagedReview } from "./ManageForm";
+import { loadReviewSummary } from "@/lib/reviews/service";
+import { ManageForm, type ManagedMap } from "./ManageForm";
 
 export const dynamic = "force-dynamic";
 
-async function loadMap(slug: string): Promise<ManagedMap | null> {
+/** Exported for tests that pin the unauthenticated SSR payload shape. */
+export async function loadMap(slug: string): Promise<ManagedMap | null> {
   const sb = supabaseServer();
   const { data } = await sb
     .from("maps")
-    .select("id, title, description, value_label, value_unit, category_label, is_listed, visibility, source_name, source_url, data_as_of, owner_department, contact, license, refresh_cycle, next_review_at, last_data_update_at, directory_hidden, directory_hidden_reason")
+    .select("id, title, description, value_label, value_unit, category_label, is_listed, visibility, source_name, source_url, data_as_of, owner_department, contact, license, refresh_cycle, next_review_at, last_data_update_at, directory_hidden")
     .eq("slug", slug)
     .maybeSingle();
   if (!data) return null;
-  const state = await loadReviewState(data.id);
-  // Ship only what the manage page renders; ids, version ids and checklists stay server-side.
-  const review: ManagedReview = {
-    required: state.required,
-    hasToken: state.hasToken,
-    status: state.status,
-    latest: state.latest
-      ? {
-          status: state.latest.status,
-          version_number: state.latest.version_number,
-          created_at: state.latest.created_at,
-          decided_at: state.latest.decided_at,
-          reviewer_label: state.latest.reviewer_label,
-          comment: state.latest.comment,
-        }
-      : null,
-    currentVersionNumber: state.currentVersionNumber,
-    approvedVersionNumber: state.approvedVersionNumber,
-  };
+  // This page renders without the admin token, so it ships a status pill only. Reviewer labels,
+  // comments, request history and the staff hide reason come from /api/maps/[slug]/review/state.
+  const review = await loadReviewSummary(data.id);
   return {
     title: data.title,
     description: data.description ?? "",
@@ -49,7 +34,7 @@ async function loadMap(slug: string): Promise<ManagedMap | null> {
     next_review_at: data.next_review_at ?? "",
     last_data_update_at: data.last_data_update_at ?? "",
     review,
-    directory: { hidden: Boolean(data.directory_hidden), reason: data.directory_hidden_reason ?? null },
+    directory: { hidden: Boolean(data.directory_hidden) },
   };
 }
 

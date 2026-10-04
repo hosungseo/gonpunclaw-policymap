@@ -3,33 +3,24 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { formatKoreanDate } from "@/lib/maps/metadata";
 import type { ManageReviewStatus } from "@/lib/reviews/gate";
+import type { ReviewState } from "@/lib/reviews/service";
 
-/** Only the review fields the manage page renders; the server never ships ids, hashes or checklists. */
-export type ManagedReviewLatest = {
-  status: "pending" | "approved" | "rejected";
-  version_number: number | null;
-  created_at: string;
-  decided_at: string | null;
-  reviewer_label: string | null;
-  comment: string;
-};
-
-export type ManagedReview = {
+/** What the server renders without the admin token: a status pill and nothing reviewer-written. */
+export type ManagedReviewSummary = {
   required: boolean;
   hasToken: boolean;
   status: ManageReviewStatus;
-  latest: ManagedReviewLatest | null;
   currentVersionNumber: number | null;
-  approvedVersionNumber: number | null;
 };
 
-export const EMPTY_REVIEW: ManagedReview = {
+/** Loaded with the admin token via /api/maps/[slug]/review/state. */
+export type ManagedReviewDetails = ReviewState & { directoryReason: string | null };
+
+export const EMPTY_REVIEW_SUMMARY: ManagedReviewSummary = {
   required: false,
   hasToken: false,
   status: "none",
-  latest: null,
   currentVersionNumber: null,
-  approvedVersionNumber: null,
 };
 
 type ReviewActionStatus =
@@ -38,7 +29,7 @@ type ReviewActionStatus =
   | { kind: "error"; message: string }
   | { kind: "success"; message: string };
 
-const REVIEW_STATUS_LABEL: Record<ManagedReview["status"], string> = {
+const REVIEW_STATUS_LABEL: Record<ManageReviewStatus, string> = {
   none: "요청 없음",
   pending: "검토 대기",
   rejected: "반려됨",
@@ -58,16 +49,28 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
+function summaryOf(state: ReviewState): ManagedReviewSummary {
+  return { required: state.required, hasToken: state.hasToken, status: state.status, currentVersionNumber: state.currentVersionNumber };
+}
+
+function isReviewState(value: unknown): value is ReviewState {
+  return Boolean(value) && typeof value === "object" && typeof (value as ReviewState).status === "string" && typeof (value as ReviewState).required === "boolean";
+}
+
 export function ReviewSection({
   slug,
   token,
-  review,
-  setReview,
+  summary,
+  setSummary,
+  details,
+  setDetails,
 }: {
   slug: string;
   token: string;
-  review: ManagedReview;
-  setReview: Dispatch<SetStateAction<ManagedReview>>;
+  summary: ManagedReviewSummary;
+  setSummary: Dispatch<SetStateAction<ManagedReviewSummary>>;
+  details: ManagedReviewDetails | null;
+  setDetails: Dispatch<SetStateAction<ManagedReviewDetails | null>>;
 }) {
   const [status, setStatus] = useState<ReviewActionStatus>({ kind: "idle" });
   const [issued, setIssued] = useState<{ token: string; url: string } | null>(null);
@@ -121,14 +124,33 @@ export function ReviewSection({
     return json;
   }
 
+  /** Server state is the truth for both the pill and the details once a token-authenticated call returns it. */
+  function applyState(state: ReviewState, directoryReason?: string | null) {
+    setSummary(summaryOf(state));
+    setDetails((d) => ({ ...state, directoryReason: directoryReason !== undefined ? directoryReason : d?.directoryReason ?? null }));
+  }
+
+  async function loadDetails() {
+    const json = await callApi(`/api/maps/${slug}/review/state`, {});
+    if (!json) return;
+    if (!isReviewState(json.state)) {
+      setStatus({ kind: "error", message: "검토 상세를 해석하지 못했습니다. 잠시 후 다시 시도해 주세요." });
+      return;
+    }
+    const directory = json.directory as { reason?: string | null } | undefined;
+    applyState(json.state, directory?.reason ?? null);
+    setStatus({ kind: "idle" });
+  }
+
   async function updateSettings(required: boolean, rotate = false) {
     const json = await callApi(`/api/maps/${slug}/review/settings`, { review_required: required, rotate_token: rotate });
     if (!json) return;
     const reviewToken = typeof json.review_token === "string" ? json.review_token : null;
     const reviewUrl = typeof json.review_url === "string" ? json.review_url : null;
     // The server keeps the existing hash when re-enabling, so no new token is issued.
-    const keptExistingLink = required && !reviewToken && review.hasToken;
-    setReview((r) => ({ ...r, required, hasToken: r.hasToken || Boolean(reviewToken) }));
+    const keptExistingLink = required && !reviewToken && summary.hasToken;
+    if (isReviewState(json.state)) applyState(json.state);
+    else setSummary((s) => ({ ...s, required, hasToken: s.hasToken || Boolean(reviewToken) }));
     if (reviewToken && reviewUrl) {
       setIssued({ token: reviewToken, url: reviewUrl });
       setCopied(null);
@@ -148,28 +170,21 @@ export function ReviewSection({
   async function requestReview() {
     const json = await callApi(`/api/maps/${slug}/review/request`, { note });
     if (!json) return;
-    const created = json.review as { version_number?: number | null } | undefined;
-    setReview((r) => ({
-      ...r,
-      status: "pending",
+    if (isReviewState(json.state)) {
+      applyState(json.state);
+    } else {
+      const created = json.review as { version_number?: number | null } | undefined;
       // A first request may capture the map's first version; surface it as the current one.
-      currentVersionNumber: r.currentVersionNumber ?? created?.version_number ?? null,
-      latest: {
-        status: "pending",
-        version_number: created?.version_number ?? r.currentVersionNumber,
-        created_at: new Date().toISOString(),
-        decided_at: null,
-        reviewer_label: null,
-        comment: "",
-      },
-    }));
+      setSummary((s) => ({ ...s, status: "pending", currentVersionNumber: s.currentVersionNumber ?? created?.version_number ?? null }));
+    }
     setNote("");
     setStatus({ kind: "success", message: "검토 요청을 보냈습니다. 검토 링크를 검토자에게 전달하세요." });
   }
 
-  const latest = review.latest;
-  const requestedOn = review.status === "pending" && latest ? formatKoreanDate(latest.created_at) : null;
+  const latest = details?.latest ?? null;
+  const requestedOn = summary.status === "pending" && latest ? formatKoreanDate(latest.created_at) : null;
   const decidedOn = latest?.decided_at ? formatKoreanDate(latest.decided_at) : null;
+  const busy = status.kind === "submitting";
 
   return (
     <section id="review-section" className="space-y-5 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
@@ -187,8 +202,8 @@ export function ReviewSection({
         <span className="text-sm font-medium">공개 전 검토 필수</span>
         <input
           type="checkbox"
-          checked={review.required}
-          disabled={status.kind === "submitting"}
+          checked={summary.required}
+          disabled={busy}
           onChange={(e) => void updateSettings(e.target.checked)}
           className="h-4 w-4 accent-blue-700"
         />
@@ -219,27 +234,46 @@ export function ReviewSection({
         </div>
       )}
 
-      {review.required && (
-        <div className="space-y-4">
+      {!details && (
+        <div className="space-y-2 rounded-md border border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium dark:bg-zinc-900">{REVIEW_STATUS_LABEL[review.status]}</span>
-            {latest?.version_number != null && <span className="text-zinc-500">요청 버전 v{latest.version_number}</span>}
-            {review.currentVersionNumber != null && <span className="text-zinc-500">현재 버전 v{review.currentVersionNumber}</span>}
-            {requestedOn && <span className="text-zinc-500">요청 {requestedOn}</span>}
-            {decidedOn && (
-              <span className="text-zinc-500">
-                결정 {decidedOn}
-                {latest?.reviewer_label ? ` · ${latest.reviewer_label}` : ""}
-              </span>
-            )}
+            {summary.required && <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium dark:bg-zinc-900">{REVIEW_STATUS_LABEL[summary.status]}</span>}
+            <button
+              type="button"
+              onClick={() => void loadDetails()}
+              disabled={busy}
+              className="inline-flex items-center rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200"
+            >
+              검토 상세 불러오기
+            </button>
           </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">관리 토큰으로 검토 의견·검토자·요청 이력을 확인합니다.</p>
+        </div>
+      )}
 
-          {review.status === "stale" && (
+      {summary.required && (
+        <div className="space-y-4" aria-live="polite">
+          {details && (
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium dark:bg-zinc-900">{REVIEW_STATUS_LABEL[summary.status]}</span>
+              {latest?.version_number != null && <span className="text-zinc-500">요청 버전 v{latest.version_number}</span>}
+              {summary.currentVersionNumber != null && <span className="text-zinc-500">현재 버전 v{summary.currentVersionNumber}</span>}
+              {requestedOn && <span className="text-zinc-500">요청 {requestedOn}</span>}
+              {decidedOn && (
+                <span className="text-zinc-500">
+                  결정 {decidedOn}
+                  {latest?.reviewer_label ? ` · ${latest.reviewer_label}` : ""}
+                </span>
+              )}
+            </div>
+          )}
+
+          {summary.status === "stale" && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
               승인 이후 데이터가 바뀌어 재검토가 필요합니다. 공개 지도에는 &lsquo;검토 대기&rsquo;로 표시됩니다.
             </p>
           )}
-          {review.status === "rejected" && latest?.comment && (
+          {summary.status === "rejected" && latest?.comment && (
             <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-100">
               <p className="text-xs font-semibold">반려 의견</p>
               <p className="mt-1 whitespace-pre-wrap">{latest.comment}</p>
@@ -262,7 +296,7 @@ export function ReviewSection({
               <button
                 type="button"
                 onClick={() => void requestReview()}
-                disabled={status.kind === "submitting"}
+                disabled={busy}
                 className="inline-flex items-center rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
               >
                 검토 요청
@@ -270,7 +304,7 @@ export function ReviewSection({
               <button
                 type="button"
                 onClick={() => void updateSettings(true, true)}
-                disabled={status.kind === "submitting"}
+                disabled={busy}
                 className="inline-flex items-center rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200"
               >
                 검토 링크 재발급

@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { EMPTY_REVIEW, ReviewSection, type ManagedReview } from "./ReviewSection";
+import { EMPTY_REVIEW_SUMMARY, ReviewSection, type ManagedReviewDetails, type ManagedReviewSummary } from "./ReviewSection";
 
-export type { ManagedReview, ManagedReviewLatest } from "./ReviewSection";
+export type { ManagedReviewDetails, ManagedReviewSummary } from "./ReviewSection";
 
 export type ManagedMap = {
   title: string;
@@ -23,8 +23,9 @@ export type ManagedMap = {
   refresh_cycle?: string;
   next_review_at?: string;
   last_data_update_at?: string;
-  review?: ManagedReview;
-  directory?: { hidden: boolean; reason: string | null };
+  review?: ManagedReviewSummary;
+  // The hide reason is not server-rendered; it arrives with the token-authenticated review details.
+  directory?: { hidden: boolean };
 };
 
 // Editing any of these invalidates a standing approval (the update route clears approved_version_id).
@@ -60,11 +61,13 @@ const LABEL_MAX = 40;
 
 export function ManageForm({ slug, initial }: { slug: string; initial: ManagedMap | null }) {
   const [token, setToken] = useState("");
-  const [review, setReview] = useState<ManagedReview>(initial?.review ?? EMPTY_REVIEW);
+  const [summary, setSummary] = useState<ManagedReviewSummary>(initial?.review ?? EMPTY_REVIEW_SUMMARY);
+  const [details, setDetails] = useState<ManagedReviewDetails | null>(null);
 
   // Mirror the server-side rule locally so the status pill does not keep showing a stale approval.
   function onReviewInvalidated() {
-    setReview((r) => (r.required && r.status === "approved" ? { ...r, status: "stale", approvedVersionNumber: null } : r));
+    setSummary((s) => (s.required && s.status === "approved" ? { ...s, status: "stale" } : s));
+    setDetails((d) => (d && d.required && d.status === "approved" ? { ...d, status: "stale", approvedVersionNumber: null } : d));
   }
 
   if (!initial) {
@@ -105,13 +108,14 @@ export function ManageForm({ slug, initial }: { slug: string; initial: ManagedMa
       {initial.directory?.hidden && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
           <p className="font-semibold">이 지도는 공개 디렉터리에서 숨김 처리되어 있습니다.</p>
-          {initial.directory.reason && <p className="mt-1 text-xs">사유: {initial.directory.reason}</p>}
+          {details?.directoryReason && <p className="mt-1 text-xs">사유: {details.directoryReason}</p>}
+          {!details && <p className="mt-1 text-xs">숨김 사유는 관리 토큰을 입력한 뒤 ‘검토·승인’의 ‘검토 상세 불러오기’로 확인할 수 있습니다.</p>}
           <p className="mt-1 text-xs">지도 링크와 임베드, 단건 API는 그대로 동작합니다. 문의는 서비스 안내 페이지의 연락처로 보내 주세요.</p>
         </div>
       )}
 
       <EditSection slug={slug} initial={initial} token={token} onReviewInvalidated={onReviewInvalidated} />
-      <ReviewSection slug={slug} token={token} review={review} setReview={setReview} />
+      <ReviewSection slug={slug} token={token} summary={summary} setSummary={setSummary} details={details} setDetails={setDetails} />
       <ReplaceDataSection slug={slug} token={token} onReviewInvalidated={onReviewInvalidated} />
       <DataToolsSection slug={slug} token={token} />
       <DeleteSection slug={slug} title={initial.title} token={token} />

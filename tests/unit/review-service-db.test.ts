@@ -265,3 +265,27 @@ describe("decideReview", () => {
     expect(callsTo("map_reviews", "update")).toHaveLength(0);
   });
 });
+
+describe("loadReviewSummary", () => {
+  it("returns status fields only and never selects reviewer-written columns", async () => {
+    const { loadReviewSummary } = await import("@/lib/reviews/service");
+    respond((c) => {
+      if (c.table === "maps") return { data: { review_required: true, review_token_hash: "h", approved_version_id: "v1", current_version_id: "v3" } };
+      if (c.table === "map_reviews") return { data: { status: "rejected", comment: "leaked?", reviewer_label: "leaked?" } };
+      if (c.table === "map_versions") return { data: { version_number: 3 } };
+      return undefined;
+    });
+    const summary = await loadReviewSummary("m1");
+    expect(summary).toEqual({ required: true, hasToken: true, status: "rejected", currentVersionNumber: 3 });
+    // The SSR payload is built from this object as-is, so no detail key may slip through.
+    expect(Object.keys(summary).sort()).toEqual(["currentVersionNumber", "hasToken", "required", "status"]);
+    expect(callsTo("map_reviews", "select")[0].selected).toBe("status");
+  });
+
+  it("reports 'none' with no current version when review is off and the map has no versions", async () => {
+    const { loadReviewSummary } = await import("@/lib/reviews/service");
+    respond((c) => (c.table === "maps" ? { data: { review_required: false, review_token_hash: null, approved_version_id: null, current_version_id: null } } : undefined));
+    expect(await loadReviewSummary("m1")).toEqual({ required: false, hasToken: false, status: "none", currentVersionNumber: null });
+    expect(callsTo("map_versions", "select")).toHaveLength(0);
+  });
+});

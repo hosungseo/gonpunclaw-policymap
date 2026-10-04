@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyAdminTokenForMap } from "@/lib/admin-auth";
 import { recordAudit } from "@/lib/audit";
-import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
+import { LIMITS, rateLimitRequest, type RateLimit } from "@/lib/rate-limit";
 import { verifyReviewTokenForMap } from "@/lib/reviews/tokens";
 
 type ErrBody = { ok: false; error: { code: string; message: string } };
@@ -14,11 +14,18 @@ export function reviewJsonError(code: string, message: string, status: number, h
 type Authed = { ok: true; mapId: string; body: Record<string, unknown>; token: string };
 type Denied = { ok: false; response: NextResponse };
 
+export type AuthOptions = {
+  /** Defaults to LIMITS.adminAttempt; read-only routes pass a looser limit. */
+  limit?: RateLimit;
+  /** Bucket prefix (always suffixed with the slug); defaults to `review-<tokenField>`. */
+  prefix?: string;
+};
+
 /** Shared preamble: rate limit, parse body, verify the admin or review token (404 + audit on failure). */
-async function authenticate(req: NextRequest, slug: string, route: string, tokenField: "admin_token" | "review_token"): Promise<Authed | Denied> {
-  // Review links are shared with outsiders, so brute-force attempts are also bucketed per map slug.
-  const limitPrefix = tokenField === "review_token" ? `review-${tokenField}-${slug}` : `review-${tokenField}`;
-  const limit = await rateLimitRequest(req, limitPrefix, LIMITS.adminAttempt);
+async function authenticate(req: NextRequest, slug: string, route: string, tokenField: "admin_token" | "review_token", opts: AuthOptions = {}): Promise<Authed | Denied> {
+  // Brute-force attempts are bucketed per map slug for both token kinds.
+  const limitPrefix = `${opts.prefix ?? `review-${tokenField}`}-${slug}`;
+  const limit = await rateLimitRequest(req, limitPrefix, opts.limit ?? LIMITS.adminAttempt);
   if (!limit.allowed) {
     return { ok: false, response: reviewJsonError("RATE_LIMITED", "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.", 429, { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) }) };
   }
@@ -38,8 +45,8 @@ async function authenticate(req: NextRequest, slug: string, route: string, token
   return { ok: true, mapId: auth.mapId, body, token };
 }
 
-export function withAdminToken(req: NextRequest, slug: string, route: string) {
-  return authenticate(req, slug, route, "admin_token");
+export function withAdminToken(req: NextRequest, slug: string, route: string, opts?: AuthOptions) {
+  return authenticate(req, slug, route, "admin_token", opts);
 }
 
 export function withReviewToken(req: NextRequest, slug: string, route: string) {
