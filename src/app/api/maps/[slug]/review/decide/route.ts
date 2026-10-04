@@ -7,6 +7,9 @@ import { decideReview, normalizeChecklist, validateDecision, type ReviewDecision
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// State conflicts the reviewer can act on (ask the owner to re-request), as opposed to server failures.
+const CONFLICT_CODES = new Set(["NO_PENDING_REVIEW", "ALREADY_DECIDED", "VERSION_CHANGED"]);
+
 export async function POST(req: NextRequest, context: { params: Promise<{ slug: string }> }) {
   const { slug } = await context.params;
   const auth = await withReviewToken(req, slug, "review.decide");
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
     reviewerLabel: typeof auth.body.reviewer_label === "string" ? auth.body.reviewer_label : null,
     reviewerIpHash: pepper && ip ? hashIp(ip, pepper) : null,
   });
-  if (!result.ok) return reviewJsonError(result.code, result.message, result.code === "NO_PENDING_REVIEW" ? 409 : 500);
+  if (!result.ok) return reviewJsonError(result.code, result.message, CONFLICT_CODES.has(result.code) ? 409 : 500);
 
   await recordAudit({
     action: decision === "approve" ? "map.review_approve" : "map.review_reject",

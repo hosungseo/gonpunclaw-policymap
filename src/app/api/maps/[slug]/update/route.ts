@@ -188,6 +188,13 @@ export async function POST(
     }
   }
 
+  // Reviewed metadata changed → the previous approval no longer covers what will be shown; clear it in the same write.
+  const reviewedMetadataChanged = metadataFields.some((field) =>
+    Object.prototype.hasOwnProperty.call(update, field) && (update[field] ?? null) !== (previousMap[field] ?? null),
+  );
+  if (previousMap.review_required === true && reviewedMetadataChanged) update.approved_version_id = null;
+  const approvedVersionId = update.approved_version_id === null ? null : ((previousMap.approved_version_id as string | null) ?? null);
+
   const currentVisibility = isVisibility(previousMap.visibility) ? previousMap.visibility : previousMap.is_listed ? "public" : "private";
   const nextVisibility = body.visibility ?? (body.is_listed !== undefined ? (body.is_listed ? "public" : "private") : (Object.keys(previousMap).length > 0 ? currentVisibility : null));
   if (nextVisibility && nextVisibility !== "private") {
@@ -203,9 +210,10 @@ export async function POST(
     });
     if (validation.length > 0) return jsonError("METADATA_REQUIRED", `공개 범위로 전환하려면 다음 항목이 필요합니다: ${validation.join(", ")}`, 400);
     // Opt-in review gate: rejects the whole request before any write when private → public/unlisted is unapproved.
+    // Uses the post-invalidation approval so one request cannot both change reviewed metadata and go public.
     const gate = reviewGate({
       review_required: Boolean(previousMap.review_required),
-      approved_version_id: (previousMap.approved_version_id as string | null) ?? null,
+      approved_version_id: approvedVersionId,
       current_version_id: (previousMap.current_version_id as string | null) ?? null,
       visibility: currentVisibility,
     }, nextVisibility);

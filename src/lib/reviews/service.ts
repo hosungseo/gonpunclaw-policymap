@@ -61,13 +61,15 @@ export interface ReviewState {
 /** Owner/reviewer-facing state for a map. */
 export async function loadReviewState(mapId: string): Promise<ReviewState> {
   const sb = supabaseServer();
-  const { data: map } = await sb.from("maps").select("review_required, review_token_hash, approved_version_id, current_version_id").eq("id", mapId).single();
+  const [{ data: map }, { data: latest }] = await Promise.all([
+    sb.from("maps").select("review_required, review_token_hash, approved_version_id, current_version_id").eq("id", mapId).single(),
+    sb.from("map_reviews").select("id, status, version_id, request_note, checklist, comment, reviewer_label, created_at, decided_at").eq("map_id", mapId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
   const fields: ReviewGateFields = {
     review_required: map?.review_required ?? false,
     approved_version_id: map?.approved_version_id ?? null,
     current_version_id: map?.current_version_id ?? null,
   };
-  const { data: latest } = await sb.from("map_reviews").select("id, status, version_id, request_note, checklist, comment, reviewer_label, created_at, decided_at").eq("map_id", mapId).order("created_at", { ascending: false }).limit(1).maybeSingle();
   const versionIds = [latest?.version_id, fields.current_version_id, fields.approved_version_id].filter((v): v is string => Boolean(v));
   const versions = new Map<string, number>();
   if (versionIds.length > 0) {
@@ -103,24 +105,41 @@ export async function updateReviewSettings({ mapId, reviewRequired, rotate }: { 
   return { review_required: reviewRequired, review_token: token, rotated: Boolean(token) };
 }
 
+async function versionNumberOf(versionId: string | null): Promise<number | null> {
+  if (!versionId) return null;
+  const { data } = await supabaseServer().from("map_versions").select("version_number").eq("id", versionId).maybeSingle();
+  return (data?.version_number as number | undefined) ?? null;
+}
+
 /** A review always points at a concrete version; capture one if the map has none yet. */
 async function resolveReviewVersion(mapId: string, currentVersionId: string | null, actorToken: string | null): Promise<{ id: string; version_number: number | null }> {
   if (!currentVersionId) {
     const version = await captureMapVersion({ mapId, reason: "검토 요청", actorToken });
     return { id: version.id as string, version_number: version.version_number as number };
   }
-  const { data } = await supabaseServer().from("map_versions").select("version_number").eq("id", currentVersionId).maybeSingle();
-  return { id: currentVersionId, version_number: (data?.version_number as number | undefined) ?? null };
+  return { id: currentVersionId, version_number: await versionNumberOf(currentVersionId) };
 }
 
-export async function requestReview({ mapId, note, actorToken }: { mapId: string; note: string; actorToken: string | null }): Promise<{ ok: true; review: { id: string; status: "pending"; version_number: number | null } } | { ok: false; code: string; message: string }> {
+// Postgres unique_violation: a concurrent request already inserted the one allowed pending row.
+const PG_UNIQUE_VIOLATION = "23505";
+
+export type RequestReviewResult =
+  | { ok: true; review: { id: string; status: "pending"; version_number: number | null } }
+  | { ok: false; code: string; message: string };
+
+export async function requestReview({ mapId, note, actorToken }: { mapId: string; note: string; actorToken: string | null }): Promise<RequestReviewResult> {
   const sb = supabaseServer();
   const { data: map } = await sb.from("maps").select("review_required, current_version_id").eq("id", mapId).single();
   if (!map?.review_required) return { ok: false, code: "REVIEW_NOT_ENABLED", message: "먼저 '공개 전 검토 필수'를 켜 주세요." };
 
-  const target = await resolveReviewVersion(mapId, map.current_version_id as string | null, actorToken);
+  const resolved = await resolveReviewVersion(mapId, map.current_version_id as string | null, actorToken).then(
+    (target) => ({ ok: true as const, target }),
+    (err: unknown) => ({ ok: false as const, message: err instanceof Error ? err.message : "검토 대상 버전을 저장하지 못했습니다." }),
+  );
+  if (!resolved.ok) return { ok: false, code: "VERSION_CAPTURE_FAILED", message: resolved.message };
+  const { target } = resolved;
 
-  // Keep at most one pending review per map.
+  // Keep at most one pending review per map (the partial unique index enforces this under concurrency).
   await sb.from("map_reviews").delete().eq("map_id", mapId).eq("status", "pending");
   const { data: review, error } = await sb.from("map_reviews").insert({
     map_id: mapId,
@@ -128,9 +147,19 @@ export async function requestReview({ mapId, note, actorToken }: { mapId: string
     status: "pending",
     request_note: note.trim().slice(0, NOTE_MAX),
   }).select("id").single();
+  if (error?.code === PG_UNIQUE_VIOLATION) {
+    const { data: existing } = await sb.from("map_reviews").select("id, version_id").eq("map_id", mapId).eq("status", "pending").maybeSingle();
+    if (existing) return { ok: true, review: { id: existing.id, status: "pending", version_number: await versionNumberOf(existing.version_id ?? null) } };
+  }
   if (error || !review) return { ok: false, code: "REQUEST_FAILED", message: error?.message ?? "검토 요청을 저장하지 못했습니다." };
   return { ok: true, review: { id: review.id, status: "pending", version_number: target.version_number } };
 }
+
+export const VERSION_CHANGED_PREFIX = "[자동 반려] 요청 이후 데이터가 바뀌었습니다.";
+
+export type DecideReviewResult =
+  | { ok: true; review: { id: string; status: "approved" | "rejected"; version_id: string | null } }
+  | { ok: false; code: string; message: string };
 
 export async function decideReview({ mapId, decision, checklist, comment, reviewerLabel, reviewerIpHash }: {
   mapId: string;
@@ -139,26 +168,48 @@ export async function decideReview({ mapId, decision, checklist, comment, review
   comment: string;
   reviewerLabel: string | null;
   reviewerIpHash: string | null;
-}): Promise<{ ok: true; review: { id: string; status: "approved" | "rejected"; version_id: string | null } } | { ok: false; code: string; message: string }> {
+}): Promise<DecideReviewResult> {
   const sb = supabaseServer();
   const { data: pending } = await sb.from("map_reviews").select("id, version_id").eq("map_id", mapId).eq("status", "pending").order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (!pending) return { ok: false, code: "NO_PENDING_REVIEW", message: "대기 중인 검토 요청이 없습니다. 소유자에게 검토 요청을 다시 보내 달라고 알려 주세요." };
 
-  const status = decision === "approve" ? "approved" : "rejected";
   const now = new Date().toISOString();
-  const { error } = await sb.from("map_reviews").update({
-    status,
+  const decidedFields = {
     checklist,
-    comment: comment.trim(),
     reviewer_label: reviewerLabel ? reviewerLabel.trim().slice(0, LABEL_MAX) : null,
     reviewer_ip_hash: reviewerIpHash,
     decided_at: now,
-  }).eq("id", pending.id);
-  if (error) return { ok: false, code: "DECIDE_FAILED", message: error.message };
+  };
+  // Conditional update on status = 'pending': only one caller can flip the row, so a repeated or
+  // concurrent decision reports ALREADY_DECIDED instead of silently overwriting the first one.
+  const flip = async (status: "approved" | "rejected", finalComment: string) => {
+    const { data, error } = await sb.from("map_reviews").update({ ...decidedFields, status, comment: finalComment })
+      .eq("id", pending.id).eq("status", "pending").select("id, version_id").maybeSingle();
+    if (error) return { ok: false as const, code: "DECIDE_FAILED", message: error.message };
+    if (!data) return { ok: false as const, code: "ALREADY_DECIDED", message: "이미 결정된 검토 요청입니다." };
+    return { ok: true as const, row: data as { id: string; version_id: string | null } };
+  };
+
+  if (decision === "approve") {
+    // An approval is only meaningful for the version the reviewer actually looked at. If the live
+    // version moved on since the request, auto-reject so the owner has to re-request.
+    const { data: map } = await sb.from("maps").select("current_version_id").eq("id", mapId).single();
+    const currentVersionId = (map?.current_version_id as string | null | undefined) ?? null;
+    if (currentVersionId !== pending.version_id) {
+      const trimmed = comment.trim();
+      const flipped = await flip("rejected", `${VERSION_CHANGED_PREFIX}${trimmed ? ` ${trimmed}` : ""}`);
+      if (!flipped.ok) return flipped;
+      return { ok: false, code: "VERSION_CHANGED", message: "요청 이후 데이터가 바뀌었습니다. 소유자에게 검토 재요청을 부탁해 주세요." };
+    }
+  }
+
+  const status = decision === "approve" ? "approved" : "rejected";
+  const flipped = await flip(status, comment.trim());
+  if (!flipped.ok) return flipped;
 
   if (status === "approved") {
     // The gate compares approved_version_id with current_version_id; approval pins the reviewed version.
-    await sb.from("maps").update({ approved_version_id: pending.version_id, updated_at: now }).eq("id", mapId);
+    await sb.from("maps").update({ approved_version_id: flipped.row.version_id, updated_at: now }).eq("id", mapId);
   }
-  return { ok: true, review: { id: pending.id, status, version_id: pending.version_id } };
+  return { ok: true, review: { id: flipped.row.id, status, version_id: flipped.row.version_id } };
 }

@@ -14,6 +14,7 @@ export type AuditAction =
   | "map.publish"
   | "map.version_restore"
   | "admin.auth_fail"
+  | "review.auth_fail"
   | "report.create"
   | "report.update"
   | "map.directory_hide"

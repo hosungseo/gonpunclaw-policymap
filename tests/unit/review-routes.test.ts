@@ -24,11 +24,14 @@ vi.mock("@/lib/reviews/service", async (importOriginal) => {
   };
 });
 
+// Each request gets its own client IP so the in-memory rate limiter (5 per bucket) never trips across tests.
+let ipCounter = 0;
 function post(path: string, body: unknown): NextRequest {
+  ipCounter += 1;
   return new Request(`http://localhost${path}`, {
     method: "POST",
     // x-forwarded-proto keeps requestOrigin() on http for the localhost host in review_url.
-    headers: { "content-type": "application/json", "x-forwarded-for": "10.0.0.9", "x-forwarded-proto": "http" },
+    headers: { "content-type": "application/json", "x-forwarded-for": `10.0.${Math.floor(ipCounter / 250)}.${ipCounter % 250}`, "x-forwarded-proto": "http" },
     body: JSON.stringify(body),
   }) as unknown as NextRequest;
 }
@@ -123,7 +126,20 @@ describe("review routes", () => {
       const { POST } = await import("@/app/api/maps/[slug]/review/decide/route");
       const res = await POST(post("/api/maps/abc123/review/decide", { review_token: "bad", decision: "approve", checklist: all }), ctx);
       expect(res.status).toBe(404);
-      expect(mockRecordAudit.mock.calls[0][0]).toMatchObject({ action: "admin.auth_fail", details: { slug: "abc123", route: "review.decide" } });
+      expect(mockRecordAudit.mock.calls[0][0]).toMatchObject({ action: "review.auth_fail", details: { slug: "abc123", route: "review.decide" } });
+    });
+
+    it("maps ALREADY_DECIDED and VERSION_CHANGED to 409", async () => {
+      mockVerifyReview.mockResolvedValue({ ok: true, mapId: "m1" });
+      const { POST } = await import("@/app/api/maps/[slug]/review/decide/route");
+      mockDecide.mockResolvedValueOnce({ ok: false, code: "ALREADY_DECIDED", message: "이미 결정된 검토 요청입니다." });
+      const first = await POST(post("/api/maps/abc123/review/decide", { review_token: "rt", decision: "approve", checklist: all }), ctx);
+      expect(first.status).toBe(409);
+      expect((await first.json()).error.code).toBe("ALREADY_DECIDED");
+      mockDecide.mockResolvedValueOnce({ ok: false, code: "VERSION_CHANGED", message: "요청 이후 데이터가 바뀌었습니다." });
+      const second = await POST(post("/api/maps/abc123/review/decide", { review_token: "rt", decision: "approve", checklist: all }), ctx);
+      expect(second.status).toBe(409);
+      expect(mockRecordAudit).not.toHaveBeenCalled();
     });
   });
 });

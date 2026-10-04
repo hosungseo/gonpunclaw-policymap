@@ -74,3 +74,6 @@ grant select (
 
 create index if not exists maps_approved_version_idx on public.maps (approved_version_id);
 create index if not exists map_reviews_version_idx on public.map_reviews (version_id);
+
+-- At most one pending review per map, enforced under concurrency (the service also deletes stale pending rows first).
+create unique index if not exists map_reviews_one_pending_idx on public.map_reviews (map_id) where status = 'pending';

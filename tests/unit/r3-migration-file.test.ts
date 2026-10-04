@@ -31,4 +31,7 @@ describe("0008_r3_collaboration migration", () => {
     expect(sql).toContain("maps_approved_version_idx");
     expect(sql).toContain("map_reviews_version_idx");
   });
+  it("allows only one pending review per map at the DB level", () => {
+    expect(sql).toMatch(/create unique index if not exists map_reviews_one_pending_idx on public\.map_reviews \(map_id\) where status = 'pending'/);
+  });
 });
