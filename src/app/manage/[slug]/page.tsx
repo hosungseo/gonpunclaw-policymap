@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { loadReviewState } from "@/lib/reviews/service";
-import { ManageForm, type ManagedMap } from "./ManageForm";
+import { ManageForm, type ManagedMap, type ManagedReview } from "./ManageForm";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,25 @@ async function loadMap(slug: string): Promise<ManagedMap | null> {
     .eq("slug", slug)
     .maybeSingle();
   if (!data) return null;
-  const review = await loadReviewState(data.id);
+  const state = await loadReviewState(data.id);
+  // Ship only what the manage page renders; ids, version ids and checklists stay server-side.
+  const review: ManagedReview = {
+    required: state.required,
+    hasToken: state.hasToken,
+    status: state.status,
+    latest: state.latest
+      ? {
+          status: state.latest.status,
+          version_number: state.latest.version_number,
+          created_at: state.latest.created_at,
+          decided_at: state.latest.decided_at,
+          reviewer_label: state.latest.reviewer_label,
+          comment: state.latest.comment,
+        }
+      : null,
+    currentVersionNumber: state.currentVersionNumber,
+    approvedVersionNumber: state.approvedVersionNumber,
+  };
   return {
     title: data.title,
     description: data.description ?? "",
