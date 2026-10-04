@@ -27,6 +27,12 @@ const nextConfig: NextConfig = {
         source: "/embed/:slug*",
         headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
       },
+      {
+        // Review links arrive with a secret token in the query string; never leak it via Referer
+        // to tile servers or outbound source links.
+        source: "/review/:slug*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
     ];
   },
 };
