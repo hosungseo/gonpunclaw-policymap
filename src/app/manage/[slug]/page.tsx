@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/supabase/server";
+import { loadReviewState } from "@/lib/reviews/service";
 import { ManageForm, type ManagedMap } from "./ManageForm";
 
 export const dynamic = "force-dynamic";
@@ -7,10 +8,11 @@ async function loadMap(slug: string): Promise<ManagedMap | null> {
   const sb = supabaseServer();
   const { data } = await sb
     .from("maps")
-    .select("title, description, value_label, value_unit, category_label, is_listed, visibility, source_name, source_url, data_as_of, owner_department, contact, license, refresh_cycle, next_review_at, last_data_update_at")
+    .select("id, title, description, value_label, value_unit, category_label, is_listed, visibility, source_name, source_url, data_as_of, owner_department, contact, license, refresh_cycle, next_review_at, last_data_update_at, directory_hidden, directory_hidden_reason")
     .eq("slug", slug)
     .maybeSingle();
   if (!data) return null;
+  const review = await loadReviewState(data.id);
   return {
     title: data.title,
     description: data.description ?? "",
@@ -28,6 +30,8 @@ async function loadMap(slug: string): Promise<ManagedMap | null> {
     refresh_cycle: data.refresh_cycle ?? "",
     next_review_at: data.next_review_at ?? "",
     last_data_update_at: data.last_data_update_at ?? "",
+    review,
+    directory: { hidden: Boolean(data.directory_hidden), reason: data.directory_hidden_reason ?? null },
   };
 }
 
