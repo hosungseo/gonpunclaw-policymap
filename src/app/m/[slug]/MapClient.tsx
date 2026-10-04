@@ -51,8 +51,7 @@ export interface MapClientProps {
   license?: string | null;
   refreshCycle?: string | null;
   nextReviewAt?: string | null;
-  lastDataUpdateAt?: string | null;
-  /** Server-formatted display label for `lastDataUpdateAt` (keeps SSR and hydration identical). */
+  /** Server-formatted display label for the last data update (keeps SSR and hydration identical). */
   lastDataUpdateLabel?: string | null;
   qualitySummary?: { total: number; review: number; excluded: number; failed?: number };
   markers: MarkerData[];

@@ -119,7 +119,9 @@ export default async function ReviewPage(props: PageProps<"/review/[slug]">) {
           </div>
         </section>
 
-        {/* The token is deliberately not passed down: the form reads it from the URL on the client so it never enters the HTML/RSC payload. */}
+        {/* The token is deliberately not passed down as a prop or rendered into the DOM. Next still serializes the
+            request URL (including `?t=`) into the RSC flight data of this response, which only the token holder
+            receives; the page is no-store, Referer is suppressed and the form strips the token from the URL on mount. */}
         <ReviewDecisionForm slug={slug} pending={Boolean(pending)} />
       </div>
     </main>

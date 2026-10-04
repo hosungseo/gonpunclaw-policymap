@@ -115,7 +115,6 @@ describe("loadPublicMapRecord / toMapClientProps", () => {
     const iso = "2026-03-15T20:00:00Z";
     mockMapMaybeSingle.mockResolvedValue({ data: { ...mapRow, last_data_update_at: iso }, error: null });
     const props = toMapClientProps((await loadPublicMapRecord(nextSlug()))!);
-    expect(props.lastDataUpdateAt).toBe(iso);
     expect(props.lastDataUpdateLabel).toBe(formatKoreanDate(iso));
     // Asia/Seoul is UTC+9, so 20:00Z already belongs to the next day.
     expect(props.lastDataUpdateLabel).toContain("16");

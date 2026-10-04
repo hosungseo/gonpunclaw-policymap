@@ -25,7 +25,14 @@ export async function preparePublicMapResponse(req: Request, slug: string): Prom
   if (!limit.allowed) {
     return { kind: "response", response: publicApiError("RATE_LIMITED", "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.", 429, { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) }) };
   }
-  const record = await loadPublicMapRecord(slug);
+  let record: PublicMapRecord | null;
+  try {
+    record = await loadPublicMapRecord(slug);
+  } catch (err) {
+    // The loader throws on query failures; never let that surface as an opaque 500 without CORS headers.
+    console.error("[public-api] load failed", { slug, message: err instanceof Error ? err.message : String(err) });
+    return { kind: "response", response: publicApiError("UPSTREAM", "지도를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 500) };
+  }
   if (!record) return { kind: "response", response: publicApiError("NOT_FOUND", "지도를 찾을 수 없습니다.", 404) };
   const etag = etagFor(record);
   const headers = publicApiHeaders(etag);

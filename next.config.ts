@@ -18,13 +18,17 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Everything except /embed/* may only be framed by this origin.
-        source: "/((?!embed/).*)",
+        // Everything except the public viewer (/m/*) and embeds (/embed/*) may only be framed by this origin.
+        source: "/((?!embed/|m/).*)",
         headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'self'" }],
       },
       {
-        // Embeds are meant to be framed by third-party sites.
-        source: "/embed/:slug*",
+        // Embeds and the public viewer are meant to be framed by third-party sites.
+        source: "/embed/:slug+",
+        headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
+      },
+      {
+        source: "/m/:slug+",
         headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
       },
       {

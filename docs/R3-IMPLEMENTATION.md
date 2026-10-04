@@ -8,7 +8,8 @@ R3는 PRD의 P2 범위(FR-PM-013 협업과 승인, FR-PM-014 임베드와 공개
 
 - 공개 지도 필터 상태(분류·값 범위·검색·보기·경계·인구감소 레이어·선택 지역)를 URL 쿼리로 동기화한다(`src/lib/share/url-state.ts`). 키는 `cat`(반복), `min`, `max`, `q`, `view`, `bnd`, `pop`, `region`이며 뷰어는 그 밖의 쿼리 파라미터를 보존한다. `/m/[slug]`, `/embed/[slug]`, `/demo`가 같은 파서를 쓴다.
 - 뷰어 "공유" 팝오버(`src/components/map/SharePanel.tsx`): 현재 보기 링크, iframe 코드, 데이터 API 주소 복사. 클립보드가 막혀 있으면 직접 복사할 수 있는 텍스트를 보여 준다.
-- `/embed/[slug]` — 축소 크롬, `Content-Security-Policy: frame-ancestors *`, `noindex`. 그 밖의 모든 경로는 `frame-ancestors 'self'`(`next.config.ts`).
+- `/embed/[slug]` — 축소 크롬, `Content-Security-Policy: frame-ancestors *`, `noindex`. 공개 지도 화면 `/m/[slug]`도 `frame-ancestors *`로 iframe을 허용하고, 그 밖의 모든 경로(관리·검토·업로드·API)는 `frame-ancestors 'self'`(`next.config.ts`).
+- `/embed` e2e(실제 iframe 로드·CSP 확인)는 DB가 있는 환경이 필요해 보류했다. 현재는 유닛 테스트(임베드 스니펫·공유 패널)와 dev 서버 헤더 확인으로 대신한다.
 
 ### 공개 데이터 API (`docs/PUBLIC-API.md`)
 
@@ -30,7 +31,7 @@ R3는 PRD의 P2 범위(FR-PM-013 협업과 승인, FR-PM-014 임베드와 공개
 - 소유자 흐름(관리 페이지 "검토·승인"): "공개 전 검토 필수"를 켜면 검토 링크가 한 번만 표시된다(재발급 가능, 이전 링크 즉시 무효). "검토 요청"은 현재 버전을 가리키는 pending 행을 만든다(버전이 없으면 먼저 스냅샷을 뜬다). 라우트: `/api/maps/[slug]/review/{settings,request}` — 관리 토큰 필요.
 - 검토자 흐름: `/review/[slug]?t=` — 미리보기 + 메타데이터·품질·공개 추가정보 열의 민감 헤더 검사 + 체크리스트 4항목(출처, 기준일, 민감정보, 공개 범위) + 승인/반려. 승인은 4항목 모두 확인, 반려는 의견 필수. 라우트: `/api/maps/[slug]/review/decide` — 검토 토큰 필요. 페이지는 `noindex`, 주소창에서 `?t=`를 즉시 제거하며 `Referrer-Policy: no-referrer`를 보낸다. 토큰 실패는 404 + 감사 `review.auth_fail`.
 - 승인은 검토자가 본 버전에 고정된다. 요청 이후 소유자가 데이터를 교체·복원해 현재 버전이 바뀌었으면 승인 시도는 `[자동 반려]`로 기록되고 `409 VERSION_CHANGED`를 돌려준다. 같은 요청을 두 번 결정하면 `409 ALREADY_DECIDED`, 대기 요청이 없으면 `409 NO_PENDING_REVIEW`.
-- 게이트(`src/lib/reviews/gate.ts`): private → public/unlisted 전환 시 `approved_version_id === current_version_id`가 아니면 `409 REVIEW_REQUIRED`. 업데이트 라우트와 업로드 발행 라우트 양쪽에 적용된다. public ↔ unlisted 전환과 private로 내리는 전환은 막지 않는다.
+- 게이트(`src/lib/reviews/gate.ts`): private → public/unlisted 전환 시 `approved_version_id === current_version_id`가 아니면 `409 REVIEW_REQUIRED`. 업데이트 라우트, 업로드 발행 라우트, 버전 복원 라우트(스냅샷의 공개 범위를 목표로 판정) 세 곳에 적용된다. 세 라우트 모두 지도 상태를 읽지 못하면 `500 MAP_LOAD_FAILED`로 닫힌다(fail closed). public ↔ unlisted 전환과 private로 내리는 전환은 막지 않는다.
 - 승인 무효화: 데이터 교체·복원으로 현재 버전이 바뀌면 공개 배지가 "검토 대기"로, 관리 페이지는 "재검토 필요"로 바뀐다. 출처·출처 URL·기준일·담당 부서를 수정하면 같은 쓰기에서 `approved_version_id`를 비운다(한 요청으로 메타데이터를 바꾸면서 공개 전환하는 것도 막힌다).
 - 감사: `map.review_settings`, `map.review_request`, `map.review_approve`, `map.review_reject`(자동 반려 포함), `review.auth_fail`.
 

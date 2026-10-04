@@ -89,6 +89,17 @@ describe("POST /api/upload/jobs/[jobId]/publish review gate", () => {
     expect(mockRecordAudit.mock.calls[0][0]).toMatchObject({ action: "map.publish", mapId: "m1" });
   });
 
+  it("fails closed with 500 MAP_LOAD_FAILED when the stored map state cannot be read", async () => {
+    mockMapStateSingle.mockResolvedValue({ data: null, error: { message: "timeout" } });
+    const { POST } = await import("@/app/api/upload/jobs/[jobId]/publish/route");
+    const res = await POST(publishRequest(publicBody), { params: Promise.resolve({ jobId: "j1" }) });
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("MAP_LOAD_FAILED");
+    expect(mockMapUpdate).not.toHaveBeenCalled();
+    expect(mockRecordAudit).not.toHaveBeenCalled();
+  });
+
   it("lets a private publish through even when review is required", async () => {
     mockMapStateSingle.mockResolvedValue({ data: { visibility: "private", is_listed: false, review_required: true, approved_version_id: null, current_version_id: "v1" }, error: null });
     const { POST } = await import("@/app/api/upload/jobs/[jobId]/publish/route");

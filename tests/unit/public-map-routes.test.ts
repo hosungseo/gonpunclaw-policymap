@@ -76,6 +76,31 @@ describe("public map routes", () => {
     expect((await res.json()).error.code).toBe("NOT_FOUND");
   });
 
+  it("returns 500 UPSTREAM with CORS headers when the loader fails (JSON)", async () => {
+    mockLoad.mockRejectedValue(new Error("db down"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { GET } = await import("@/app/api/public/maps/[slug]/route");
+    const res = await GET(req(`https://${HOST}/api/public/maps/abc123`), ctx);
+    errorSpy.mockRestore();
+    expect(res.status).toBe(500);
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    expect(res.headers.get("cache-control")).toBeNull();
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(json.error.code).toBe("UPSTREAM");
+  });
+
+  it("returns 500 UPSTREAM with CORS headers when the loader fails (GeoJSON)", async () => {
+    mockLoad.mockRejectedValue(new Error("db down"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { GET } = await import("@/app/api/public/maps/[slug]/geojson/route");
+    const res = await GET(req(`https://${HOST}/api/public/maps/abc123/geojson`), ctx);
+    errorSpy.mockRestore();
+    expect(res.status).toBe(500);
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    expect((await res.json()).error.code).toBe("UPSTREAM");
+  });
+
   it("returns 429 with Retry-After when rate limited", async () => {
     mockRateLimit.mockResolvedValue({ allowed: false, retryAfterMs: 4000 });
     const { GET } = await import("@/app/api/public/maps/[slug]/route");

@@ -5,8 +5,8 @@ import { ReviewDecisionForm } from "@/app/review/[slug]/ReviewClient";
 
 let root: ReturnType<typeof createRoot> | null = null;
 
-// The token is never a prop: the server keeps it out of the HTML/RSC payload and the form picks it
-// up from the URL on mount, so every test starts from a review link in the address bar.
+// The token is never a prop or DOM value: the form picks it up from the URL on mount and strips it
+// there, so every test starts from a review link in the address bar.
 beforeEach(() => {
   window.history.replaceState({}, "", "/review/abc123?t=rt&view=table");
 });

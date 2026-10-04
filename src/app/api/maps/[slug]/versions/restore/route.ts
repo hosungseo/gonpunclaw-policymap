@@ -4,6 +4,8 @@ import { recordAudit } from "@/lib/audit";
 import { supabaseServer } from "@/lib/supabase/server";
 import { LIMITS, rateLimitRequest } from "@/lib/rate-limit";
 import { tryCaptureMapVersion, type MapVersionSnapshot } from "@/lib/versions";
+import { reviewGate } from "@/lib/reviews/gate";
+import { isVisibility, type Visibility } from "@/lib/maps/metadata";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +38,24 @@ export async function POST(req: Request, context: { params: Promise<{ slug: stri
   if (versionError || !version) return error("VERSION_NOT_FOUND", "복원할 버전을 찾을 수 없습니다.", 404);
   const snapshot = version.snapshot as MapVersionSnapshot;
   if (!snapshot || !Array.isArray(snapshot.markers) || !snapshot.map) return error("BAD_SNAPSHOT", "버전 스냅샷이 올바르지 않습니다.", 422);
+  const mapSnapshot = snapshot.map;
+  const targetVisibility: Visibility = isVisibility(mapSnapshot.visibility) ? mapSnapshot.visibility : "private";
+
+  // Restoring a snapshot rewrites visibility, so it must pass the same review gate as an update.
+  // Fail closed: without the stored state the gate cannot be evaluated, so write nothing.
+  const { data: mapState, error: mapStateError } = await sb
+    .from("maps")
+    .select("visibility, is_listed, review_required, approved_version_id, current_version_id")
+    .eq("id", auth.mapId)
+    .single();
+  if (mapStateError || !mapState) return error("MAP_LOAD_FAILED", "지도 상태를 불러오지 못했습니다.", 500);
+  const gate = reviewGate({
+    review_required: Boolean(mapState.review_required),
+    approved_version_id: mapState.approved_version_id ?? null,
+    current_version_id: mapState.current_version_id ?? null,
+    visibility: isVisibility(mapState.visibility) ? mapState.visibility : mapState.is_listed ? "public" : "private",
+  }, targetVisibility);
+  if (!gate.ok) return error(gate.code, gate.message, 409);
 
   const { error: deleteFailuresError } = await sb.from("geocode_failures").delete().eq("map_id", auth.mapId);
   if (deleteFailuresError) return error("RESTORE_FAILED", deleteFailuresError.message, 500);
@@ -53,7 +73,6 @@ export async function POST(req: Request, context: { params: Promise<{ slug: stri
     if (insertError) return error("RESTORE_FAILED", insertError.message, 500);
   }
 
-  const mapSnapshot = snapshot.map;
   const now = new Date().toISOString();
   const { error: updateError } = await sb.from("maps").update({
     title: String(mapSnapshot.title ?? ""),
@@ -61,7 +80,7 @@ export async function POST(req: Request, context: { params: Promise<{ slug: stri
     value_label: mapSnapshot.value_label ?? null,
     value_unit: mapSnapshot.value_unit ?? null,
     category_label: mapSnapshot.category_label ?? null,
-    visibility: mapSnapshot.visibility ?? "private",
+    visibility: targetVisibility,
     is_listed: mapSnapshot.is_listed === true,
     source_name: mapSnapshot.source_name ?? null,
     source_url: mapSnapshot.source_url ?? null,

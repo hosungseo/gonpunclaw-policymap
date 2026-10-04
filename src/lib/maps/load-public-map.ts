@@ -121,7 +121,6 @@ export function toMapClientProps(record: PublicMapRecord): MapClientProps {
     license: map.license ?? null,
     refreshCycle: map.refresh_cycle ?? null,
     nextReviewAt: map.next_review_at ?? null,
-    lastDataUpdateAt: map.last_data_update_at ?? null,
     lastDataUpdateLabel: formatKoreanDate(map.last_data_update_at),
     qualitySummary: {
       total: markers.length,

@@ -22,8 +22,10 @@ const TOKEN_PARAM = "t";
 
 /**
  * Read the review token from the address bar and remove it there without adding a history entry.
- * The server never passes the token into the HTML/RSC payload; after this call it lives only in
- * component state, so it is neither kept in browser history nor leaked as a Referer.
+ * The server never passes the token as a prop or renders it into the DOM (Next does embed the
+ * request URL in the RSC flight data, but only the token holder receives that no-store response).
+ * After this call the token lives only in component state, so it is neither kept in browser
+ * history nor leaked as a Referer.
  */
 function takeTokenFromLocation(): string | null {
   if (typeof window === "undefined") return null;

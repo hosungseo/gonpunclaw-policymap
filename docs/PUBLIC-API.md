@@ -101,7 +101,7 @@ GeoJSON은 같은 `map` 객체를 최상위 `properties`에, 각 마커를 `Poin
 | --- | --- | --- |
 | 404 | `NOT_FOUND` | 지도가 없거나 비공개 |
 | 429 | `RATE_LIMITED` | 호출 한도 초과. `Retry-After`(초) 헤더 포함 |
-| 500 | `UPSTREAM` | 디렉터리 목록 조회 실패 |
+| 500 | `UPSTREAM` | 조회 실패(디렉터리 목록·단건·GeoJSON 공통). CORS 헤더 포함, `Cache-Control` 없음 |
 
 ## 캐시·제한
 
@@ -122,7 +122,7 @@ GeoJSON은 같은 `map` 객체를 최상위 `properties`에, 각 마커를 `Poin
   loading="lazy" allowfullscreen></iframe>
 ```
 
-`/embed/{slug}`는 `frame-ancestors *`로 어떤 사이트에서든 iframe에 넣을 수 있고, 검색 엔진에는 `noindex`입니다. 그 밖의 모든 화면은 `frame-ancestors 'self'`라 외부 사이트에 넣을 수 없습니다.
+`/embed/{slug}`와 공개 지도 화면 `/m/{slug}`만 `frame-ancestors *`로 어떤 사이트에서든 iframe에 넣을 수 있습니다(`/embed`는 검색 엔진에 `noindex`). 관리·검토·업로드 등 그 밖의 모든 화면은 `frame-ancestors 'self'`라 외부 사이트에 넣을 수 없습니다.
 
 공개 지도 화면의 **공유 → 임베드 코드 복사**가 현재 필터를 포함한 코드를 만들어 줍니다. `/m/{slug}`와 `/embed/{slug}` 모두 아래 쿼리 파라미터로 초기 상태를 지정할 수 있습니다.
 
