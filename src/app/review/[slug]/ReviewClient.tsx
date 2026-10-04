@@ -15,37 +15,52 @@ type DecideResponse = { ok: true } | { ok: false; error?: { code?: string; messa
 
 const EMPTY: ReviewChecklist = { source: false, as_of: false, sensitive: false, visibility: false };
 const GENERIC_ERROR = "처리에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+const TOKEN_MISSING = "검토 링크를 다시 열어 주세요 (주소의 t 값이 필요합니다).";
 
 /** Query key that carries the review token in the shared link. */
 const TOKEN_PARAM = "t";
 
 /**
- * Remove the review token from the address bar without adding a history entry. The token lives only
- * in component state afterwards, so it is neither kept in browser history nor leaked as a Referer.
+ * Read the review token from the address bar and remove it there without adding a history entry.
+ * The server never passes the token into the HTML/RSC payload; after this call it lives only in
+ * component state, so it is neither kept in browser history nor leaked as a Referer.
  */
-function stripTokenFromLocation() {
-  if (typeof window === "undefined") return;
+function takeTokenFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
-  if (!params.has(TOKEN_PARAM)) return;
+  const token = params.get(TOKEN_PARAM)?.trim() || null;
+  if (!params.has(TOKEN_PARAM)) return token;
   params.delete(TOKEN_PARAM);
   const search = params.toString();
   window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`);
+  return token;
 }
 
-export function ReviewDecisionForm({ slug, reviewToken, pending }: { slug: string; reviewToken: string; pending: boolean }) {
+export function ReviewDecisionForm({ slug, pending }: { slug: string; pending: boolean }) {
+  const [reviewToken, setReviewToken] = useState<string | null>(null);
   const [checklist, setChecklist] = useState<ReviewChecklist>(EMPTY);
   const [comment, setComment] = useState("");
   const [label, setLabel] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
-  // Runs once on mount, before any early return, so the token is stripped even when nothing is pending.
+  // Runs once on mount, before any early return, so the token is captured and stripped even when
+  // nothing is pending. A page reload after the strip has no token: the form then asks for the link.
+  // A lazy initializer is not an option (the server renders "no token", so it would mismatch on
+  // hydration) and the URL must be read exactly once before it is rewritten, so the one extra
+  // render this rule guards against is intended here.
   useEffect(() => {
-    stripTokenFromLocation();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReviewToken(takeTokenFromLocation());
   }, []);
 
   const allChecked = REVIEW_CHECKLIST_KEYS.every((key) => checklist[key]);
+  const tokenMissing = reviewToken === null;
 
   async function decide(decision: Decision) {
+    if (!reviewToken) {
+      setStatus({ kind: "error", message: TOKEN_MISSING });
+      return;
+    }
     if (decision === "reject" && !comment.trim()) {
       setStatus({ kind: "error", message: "반려할 때는 의견을 입력해 주세요." });
       return;
@@ -103,8 +118,13 @@ export function ReviewDecisionForm({ slug, reviewToken, pending }: { slug: strin
     <div className="space-y-5 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
       <div>
         <h2 className="text-lg font-semibold">검토 체크리스트</h2>
-        <p className="mt-1 text-xs text-zinc-500">승인하려면 네 항목을 모두 확인해야 합니다. 반려는 의견만 있으면 됩니다.</p>
+        <p id="review-approve-help" className="mt-1 text-xs text-zinc-500">승인하려면 네 항목을 모두 확인해야 합니다. 반려는 의견만 있으면 됩니다.</p>
       </div>
+      {tokenMissing && (
+        <p role="alert" className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+          {TOKEN_MISSING}
+        </p>
+      )}
       <ul className="space-y-2">
         {REVIEW_CHECKLIST_KEYS.map((key: ReviewChecklistKey) => (
           <li key={key}>
@@ -156,7 +176,8 @@ export function ReviewDecisionForm({ slug, reviewToken, pending }: { slug: strin
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={!allChecked || submitting}
+          disabled={tokenMissing || !allChecked || submitting}
+          aria-describedby="review-approve-help"
           onClick={() => void decide("approve")}
           className="inline-flex min-h-10 items-center rounded-lg bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
         >
@@ -164,7 +185,7 @@ export function ReviewDecisionForm({ slug, reviewToken, pending }: { slug: strin
         </button>
         <button
           type="button"
-          disabled={submitting}
+          disabled={tokenMissing || submitting}
           onClick={() => void decide("reject")}
           className="inline-flex min-h-10 items-center rounded-lg border border-zinc-300 px-5 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
         >

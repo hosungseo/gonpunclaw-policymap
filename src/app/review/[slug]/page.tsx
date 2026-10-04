@@ -19,7 +19,9 @@ function first(value: string | string[] | undefined): string {
 }
 
 async function loadPublicExtraColumns(mapId: string): Promise<string[]> {
-  const { data } = await supabaseServer().from("maps").select("public_extra_columns").eq("id", mapId).single();
+  const { data, error } = await supabaseServer().from("maps").select("public_extra_columns").eq("id", mapId).single();
+  // Fail loudly: a silent [] would render a false "no sensitive headers" verdict to the reviewer.
+  if (error) throw new Error(error.message);
   return Array.isArray(data?.public_extra_columns) ? (data.public_extra_columns as string[]) : [];
 }
 
@@ -29,6 +31,8 @@ export default async function ReviewPage(props: PageProps<"/review/[slug]">) {
   // A missing or wrong token is a plain 404 so the page never reveals whether the map exists.
   if (!token) notFound();
   const auth = await verifyReviewTokenForMap(slug, token);
+  // A server misconfiguration must surface as an error, not masquerade as a bad link.
+  if (!auth.ok && auth.reason === "MISSING_PEPPER") throw new Error("ADMIN_TOKEN_PEPPER missing");
   if (!auth.ok) notFound();
 
   const [record, state, extraColumns] = await Promise.all([
@@ -43,9 +47,10 @@ export default async function ReviewPage(props: PageProps<"/review/[slug]">) {
   const pending = state.latest?.status === "pending" ? state.latest : null;
   const visibility = effectiveVisibility(record.map);
 
+  const SOURCE_URL_LABEL = "출처 URL";
   const metaRows: Array<[string, string | null]> = [
     ["자료 출처", record.map.source_name],
-    ["출처 URL", record.map.source_url],
+    [SOURCE_URL_LABEL, record.map.source_url],
     ["자료 기준일", record.map.data_as_of],
     ["담당 부서", record.map.owner_department],
     ["문의처", record.map.contact],
@@ -73,8 +78,9 @@ export default async function ReviewPage(props: PageProps<"/review/[slug]">) {
           )}
         </div>
 
-        <section className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800" style={{ height: 520 }}>
-          <MapClient {...clientProps} embed />
+        <section className="h-[60dvh] max-h-[640px] min-h-80 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+          {/* No "open in PolicyMap" link: a private map under review would 404 there. */}
+          <MapClient {...clientProps} embed embedOpenLink={false} />
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
@@ -84,7 +90,7 @@ export default async function ReviewPage(props: PageProps<"/review/[slug]">) {
               {metaRows.map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-4">
                   <dt className="text-zinc-500">{label}</dt>
-                  <dd className={`break-all text-right ${value ? "" : "text-red-600"}`}>{value ?? "미입력"}</dd>
+                  <dd className={`text-right ${label === SOURCE_URL_LABEL ? "break-all" : "break-words"} ${value ? "" : "text-red-600"}`}>{value ?? "미입력"}</dd>
                 </div>
               ))}
             </dl>
@@ -113,7 +119,8 @@ export default async function ReviewPage(props: PageProps<"/review/[slug]">) {
           </div>
         </section>
 
-        <ReviewDecisionForm slug={slug} reviewToken={token} pending={Boolean(pending)} />
+        {/* The token is deliberately not passed down: the form reads it from the URL on the client so it never enters the HTML/RSC payload. */}
+        <ReviewDecisionForm slug={slug} pending={Boolean(pending)} />
       </div>
     </main>
   );

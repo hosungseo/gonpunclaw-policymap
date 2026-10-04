@@ -62,11 +62,13 @@ export interface MapClientProps {
   reviewBadge?: { status: "approved" | "pending"; versionNumber: number | null; decidedAtLabel: string | null } | null;
   /** Compact chrome for iframe embedding and the reviewer preview. */
   embed?: boolean;
+  /** Show the "open in PolicyMap" footer link in embed mode. Off for private maps under review (the link would 404). */
+  embedOpenLink?: boolean;
 }
 
 type ViewMode = "map" | "table";
 
-export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateLabel, qualitySummary, markers, isDemo = false, initialUrlState, reviewBadge = null, embed = false }: MapClientProps) {
+export function MapClient({ slug, title, description, valueLabel, valueUnit, categoryLabel, visibility = "public", sourceName, sourceUrl, dataAsOf, ownerDepartment, contact, license, refreshCycle, nextReviewAt, lastDataUpdateLabel, qualitySummary, markers, isDemo = false, initialUrlState, reviewBadge = null, embed = false, embedOpenLink = true }: MapClientProps) {
   const [map, setMap] = useState<MLMap | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(() => (initialUrlState?.categories ? new Set(initialUrlState.categories) : null));
   const [valueRange, setValueRange] = useState<[number, number] | null>(() => clampValueRange(initialUrlState?.valueRange, computeBaseValueRange(markers)));
@@ -654,14 +656,16 @@ export function MapClient({ slug, title, description, valueLabel, valueUnit, cat
           <span className="truncate">
             {title}{sourceName ? ` · 출처 ${sourceName}` : ""}{dataAsOf ? ` · 기준일 ${dataAsOf}` : ""}
           </span>
-          <a
-            href={`/m/${slug}${currentSearch ? `?${currentSearch}` : ""}`}
-            target="_blank"
-            rel="noreferrer"
-            className="shrink-0 font-semibold text-blue-700 hover:underline dark:text-blue-400"
-          >
-            PolicyMap에서 열기 ↗
-          </a>
+          {embedOpenLink && (
+            <a
+              href={`/m/${slug}${currentSearch ? `?${currentSearch}` : ""}`}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 font-semibold text-blue-700 hover:underline dark:text-blue-400"
+            >
+              PolicyMap에서 열기 ↗
+            </a>
+          )}
         </div>
       )}
     </div>
