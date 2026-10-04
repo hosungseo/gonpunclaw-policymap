@@ -332,4 +332,29 @@ test.describe("public UI polish", () => {
     await expect(page.getByRole("heading", { name: "지도 사용법" })).toBeHidden();
     await expectNoHorizontalOverflow(page);
   });
+
+  test("directory page renders with search and api hint", async ({ page }) => {
+    await page.goto("/maps");
+
+    // Heading, search and the API hint render even when the directory query fails (error banner only).
+    await expect(page.getByRole("heading", { name: "공개 지도" })).toBeVisible();
+    await expect(page.getByPlaceholder("제목, 설명, 담당 부서 검색")).toBeVisible();
+    await expect(page.getByText("GET /api/public/maps")).toBeVisible();
+    await expect(page.getByRole("link", { name: "데이터 API 안내" })).toHaveAttribute("href", "/guide#api");
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test("demo map restores table view from the url and exposes the share panel", async ({ page }) => {
+    await page.goto("/demo?view=table&q=%EC%84%9C%EC%B4%88");
+
+    await expect(page.getByRole("heading", { name: "데이터 표" })).toBeVisible();
+    await expect(page.getByPlaceholder("기관명, 주소, 분류 검색")).toHaveValue("서초");
+    await expect(page.getByRole("cell", { name: "서초복지관" })).toBeVisible();
+
+    await page.getByRole("button", { name: "공유" }).click();
+    await expect(page.getByRole("dialog", { name: "공유 옵션" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /현재 보기 링크 복사/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /임베드 코드 복사/ })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
 });

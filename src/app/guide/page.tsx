@@ -44,6 +44,21 @@ const TROUBLESHOOTING = [
   },
 ];
 
+const SHARE_GUIDE = [
+  {
+    title: "홈페이지에 지도 넣기",
+    body: "공개 지도 화면의 ‘공유 → 임베드 코드 복사’로 iframe 코드를 받습니다. 현재 선택한 분류·값 범위·검색어·보기 상태가 그대로 열립니다.",
+  },
+  {
+    title: "데이터 API",
+    body: "/api/public/maps/{slug} (JSON), /api/public/maps/{slug}/geojson (GeoJSON), /api/public/maps (공개 디렉터리 목록). 공개·링크공개 지도만, 인증 없이 IP당 분당 120회.",
+  },
+  {
+    title: "공개 전 검토",
+    body: "관리 페이지 ‘검토·승인’에서 ‘공개 전 검토 필수’를 켜고 한 번만 표시되는 검토 링크를 검토자에게 전달하세요. 승인된 버전만 비공개에서 공개로 전환되며, 데이터를 바꾸면 다시 검토를 받아야 합니다.",
+  },
+];
+
 export default function GuidePage() {
   return (
     <main className="min-h-dvh bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
@@ -181,6 +196,28 @@ export default function GuidePage() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section id="api" className="mx-auto w-full max-w-6xl px-6 pb-10">
+        <h2 className="text-2xl font-semibold tracking-tight">공유·임베드·API</h2>
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          {SHARE_GUIDE.map((item) => (
+            <article key={item.title} className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+              <h3 className="text-base font-semibold text-zinc-950 dark:text-white">{item.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{item.body}</p>
+            </article>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-zinc-500">
+          자세한 내용:{" "}
+          <a className="underline" href="https://github.com/hosungseo/gonpunclaw-policymap/blob/main/docs/PUBLIC-API.md">
+            PUBLIC-API.md
+          </a>
+          {" · "}
+          <Link className="underline" href="/maps">
+            공개 지도 디렉터리
+          </Link>
+        </p>
       </section>
     </main>
   );
