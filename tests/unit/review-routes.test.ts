@@ -136,10 +136,18 @@ describe("review routes", () => {
       const first = await POST(post("/api/maps/abc123/review/decide", { review_token: "rt", decision: "approve", checklist: all }), ctx);
       expect(first.status).toBe(409);
       expect((await first.json()).error.code).toBe("ALREADY_DECIDED");
-      mockDecide.mockResolvedValueOnce({ ok: false, code: "VERSION_CHANGED", message: "요청 이후 데이터가 바뀌었습니다." });
+      expect(mockRecordAudit).not.toHaveBeenCalled();
+      mockDecide.mockResolvedValueOnce({ ok: false, code: "VERSION_CHANGED", message: "요청 이후 데이터가 바뀌었습니다.", review: { id: "r1", version_id: "v1" } });
       const second = await POST(post("/api/maps/abc123/review/decide", { review_token: "rt", decision: "approve", checklist: all }), ctx);
       expect(second.status).toBe(409);
-      expect(mockRecordAudit).not.toHaveBeenCalled();
+      expect((await second.json()).error.code).toBe("VERSION_CHANGED");
+      // The auto-rejection is a real decision and must show up in the audit trail.
+      expect(mockRecordAudit).toHaveBeenCalledTimes(1);
+      expect(mockRecordAudit.mock.calls[0][0]).toMatchObject({
+        action: "map.review_reject",
+        mapId: "m1",
+        details: { slug: "abc123", auto_reason: "version_changed", review_id: "r1", version_id: "v1" },
+      });
     });
   });
 });

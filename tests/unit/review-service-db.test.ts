@@ -239,7 +239,7 @@ describe("decideReview", () => {
       if (c.table === "map_reviews" && c.op === "update") return { data: { id: "r1", version_id: "v1" } };
       return undefined;
     });
-    expect(await decideReview({ ...input, decision: "approve", comment: "좋아요" })).toMatchObject({ ok: false, code: "VERSION_CHANGED" });
+    expect(await decideReview({ ...input, decision: "approve", comment: "좋아요" })).toMatchObject({ ok: false, code: "VERSION_CHANGED", review: { id: "r1", version_id: "v1" } });
     const [flip] = callsTo("map_reviews", "update");
     expect(flip.filters).toEqual({ id: "r1", status: "pending" });
     expect(flip.payload).toMatchObject({ status: "rejected", comment: `${VERSION_CHANGED_PREFIX} 좋아요` });

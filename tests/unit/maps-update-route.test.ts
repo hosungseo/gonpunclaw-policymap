@@ -263,4 +263,15 @@ describe("POST /api/maps/[slug]/update", () => {
     expect(res.status).toBe(409);
     expect(mockUpdateSingle).not.toHaveBeenCalled();
   });
+
+  it("fails closed with 500 MAP_LOAD_FAILED when the stored map state cannot be read", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true, mapId: "mid" });
+    mockPrevSingle.mockResolvedValueOnce({ data: null, error: { message: "transient" } });
+    const res = await callRoute({ admin_token: "t", visibility: "public" }, "10.0.0.27");
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { ok: false; error: { code: string } };
+    expect(json.error.code).toBe("MAP_LOAD_FAILED");
+    expect(mockUpdateSingle).not.toHaveBeenCalled();
+    expect(mockRecordAudit).not.toHaveBeenCalled();
+  });
 });

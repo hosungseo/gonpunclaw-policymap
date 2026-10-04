@@ -31,7 +31,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
     reviewerLabel: typeof auth.body.reviewer_label === "string" ? auth.body.reviewer_label : null,
     reviewerIpHash: pepper && ip ? hashIp(ip, pepper) : null,
   });
-  if (!result.ok) return reviewJsonError(result.code, result.message, CONFLICT_CODES.has(result.code) ? 409 : 500);
+  if (!result.ok) {
+    if (result.code === "VERSION_CHANGED") {
+      // The service auto-rejected the pending review; keep that decision visible in the audit trail.
+      await recordAudit({
+        action: "map.review_reject",
+        mapId: auth.mapId,
+        req,
+        details: { slug, auto_reason: "version_changed", review_id: result.review?.id, version_id: result.review?.version_id },
+      });
+    }
+    return reviewJsonError(result.code, result.message, CONFLICT_CODES.has(result.code) ? 409 : 500);
+  }
 
   await recordAudit({
     action: decision === "approve" ? "map.review_approve" : "map.review_reject",

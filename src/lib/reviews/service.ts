@@ -159,7 +159,8 @@ export const VERSION_CHANGED_PREFIX = "[자동 반려] 요청 이후 데이터�
 
 export type DecideReviewResult =
   | { ok: true; review: { id: string; status: "approved" | "rejected"; version_id: string | null } }
-  | { ok: false; code: string; message: string };
+  // `review` is present for VERSION_CHANGED so the route can audit the auto-rejection it caused.
+  | { ok: false; code: string; message: string; review?: { id: string; version_id: string | null } };
 
 export async function decideReview({ mapId, decision, checklist, comment, reviewerLabel, reviewerIpHash }: {
   mapId: string;
@@ -199,7 +200,12 @@ export async function decideReview({ mapId, decision, checklist, comment, review
       const trimmed = comment.trim();
       const flipped = await flip("rejected", `${VERSION_CHANGED_PREFIX}${trimmed ? ` ${trimmed}` : ""}`);
       if (!flipped.ok) return flipped;
-      return { ok: false, code: "VERSION_CHANGED", message: "요청 이후 데이터가 바뀌었습니다. 소유자에게 검토 재요청을 부탁해 주세요." };
+      return {
+        ok: false,
+        code: "VERSION_CHANGED",
+        message: "요청 이후 데이터가 바뀌었습니다. 소유자에게 검토 재요청을 부탁해 주세요.",
+        review: { id: flipped.row.id, version_id: flipped.row.version_id },
+      };
     }
   }
 

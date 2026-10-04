@@ -182,10 +182,11 @@ export async function POST(
       .select("is_listed, visibility, title, description, source_name, source_url, data_as_of, owner_department, review_required, approved_version_id, current_version_id")
       .eq("id", auth.mapId)
       .single();
-    if (prev) {
-      previousIsListed = prev.is_listed;
-      previousMap = prev as Record<string, unknown>;
-    }
+    // Fail closed: without the stored state the review gate cannot be evaluated, so never let a
+    // visibility/metadata change through on a transient read failure.
+    if (!prev) return jsonError("MAP_LOAD_FAILED", "지도 상태를 불러오지 못했습니다.", 500);
+    previousIsListed = prev.is_listed;
+    previousMap = prev as Record<string, unknown>;
   }
 
   // Reviewed metadata changed → the previous approval no longer covers what will be shown; clear it in the same write.
